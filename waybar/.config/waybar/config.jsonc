@@ -2,7 +2,14 @@
   "position": "top",
   "modules-left": ["hyprland/workspaces"],
   "modules-center": ["hyprland/window"],
-  "modules-right": ["network", "bluetooth", "pulseaudio", "battery", "clock"],
+  "modules-right": [
+    "network",
+    "bluetooth",
+    "pulseaudio",
+    "battery",
+    "clock",
+    "custom/power",
+  ],
   "clock": {
     "format": "<span foreground='#f5c2e7'> </span> {:%a %d %H:%M}",
     "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>",
@@ -47,5 +54,10 @@
       "default": ["", "", " "],
     },
     "on-click": "pavucontrol",
+  },
+  "custom/power": {
+    "format": "<span size='13000' foreground='#f38ba8'>⏻ </span>",
+    "on-click": "wlogout",
+    "tooltip-format": "Power Menu",
   },
 }
