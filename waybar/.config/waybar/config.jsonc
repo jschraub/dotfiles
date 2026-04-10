@@ -57,7 +57,7 @@
   },
   "custom/power": {
     "format": "<span size='13000' foreground='#f38ba8'>⏻ </span>",
-    "on-click": "wlogout",
+    "on-click": "~/.local/bin/wlogout-centered.sh",
     "tooltip-format": "Power Menu",
   },
 }
