@@ -1,0 +1,11 @@
+[SddmGreeterTheme]
+Name=Catppuccin Tolkien
+Description=Catppuccin Mocha theme with Tolkien backgrounds, matching hyprlock style
+Author=jars
+Type=sddm-theme
+Version=1.0
+MainScript=Main.qml
+ConfigFile=theme.conf
+Theme-Id=catppuccin-tolkien
+Theme-API=2.0
+QtVersion=6
