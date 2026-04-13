@@ -1,7 +1,16 @@
+[CompactMode]
+PreviewSize=16
+
+[DetailsMode]
+PreviewSize=16
+
 [General]
+ShowHiddenFiles=true
 Version=202
 ViewPropsTimestamp=2026,4,6,22,50,55.197
-ShowHiddenFiles=true
+
+[InformationPanel]
+dateFormat=ShortFormat
 
 [KFileDialog Settings]
 Places Icons Auto-resize=false
@@ -9,3 +18,9 @@ Places Icons Static Size=22
 
 [MainWindow]
 MenuBar=Disabled
+
+[PreviewSettings]
+Plugins=ffmpegthumbnailer,appimagethumbnail,audiothumbnail,glycin-heif,blenderthumbnail,comicbookthumbnail,cursorthumbnail,djvuthumbnail,ebookthumbnail,exrthumbnail,directorythumbnail,fontthumbnail,imagethumbnail,glycin-image-rs,jpegthumbnail,glycin-jxl,kraorathumbnail,windowsexethumbnail,windowsimagethumbnail,mobithumbnail,opendocumentthumbnail,gsthumbnail,rawthumbnail,glycin-svg,svgthumbnail,ffmpegthumbs,gsf-office
+
+[UiSettings]
+ColorScheme=BreezeDark
