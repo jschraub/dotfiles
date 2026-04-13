@@ -35,7 +35,7 @@
     "format-linked": "{ifname} (No IP) ",
     "format-disconnected": "<span size='13000' foreground='#f5e0dc'> </span> Disconnected",
     "tooltip-format-wifi": "Signal Strenght: {signalStrength}%",
-    "on-click": "ghostty --class=nmtui-float -e nmtui",
+    "on-click": "ghostty --title='nmtui-float' -e nmtui",
   },
   "bluetooth": {
     "format": "<span size='13000' foreground='#74c7ec'> </span> {status}",
