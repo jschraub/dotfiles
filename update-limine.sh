@@ -26,11 +26,11 @@ cp "$BG_SRC" "$BOOT_DIR/limine-wallpaper.jpg"
 # Update limine.conf settings (top section only)
 info "Updating limine.conf..."
 
-# timeout: 5 → 3
+# timeout: 3 seconds
 sed -i 's/^timeout:.*/timeout: 3/' "$LIMINE_CONF"
 
-# default_entry: 2 → 1
-sed -i 's/^default_entry:.*/default_entry: 1/' "$LIMINE_CONF"
+# default_entry: use path format "Directory/Entry" to select a specific subentry
+sed -i 's/^default_entry:.*/default_entry: CachyOS\/CachyOS/' "$LIMINE_CONF"
 
 # Remove remember_last_entry
 sed -i '/^remember_last_entry:/d' "$LIMINE_CONF"
@@ -38,10 +38,21 @@ sed -i '/^remember_last_entry:/d' "$LIMINE_CONF"
 # Update wallpaper
 sed -i 's|^wallpaper:.*|wallpaper: boot():/limine-wallpaper.jpg|' "$LIMINE_CONF"
 
-# Set interface_resolution for cleaner font rendering on high-DPI
-# Use native res if available, limine will scale the font
-if ! grep -q '^interface_resolution:' "$LIMINE_CONF"; then
+# Interface resolution: explicitly set 4K to avoid Limine's auto-detect picking a bad mode
+if grep -q '^interface_resolution:' "$LIMINE_CONF"; then
+    sed -i 's/^interface_resolution:.*/interface_resolution: 3840x2160/' "$LIMINE_CONF"
+else
     sed -i '/^wallpaper:/a interface_resolution: 3840x2160' "$LIMINE_CONF"
+fi
+
+# Remove term_font_scale to use default (1x1) — avoids blocky oversized font
+sed -i '/^term_font_scale:/d' "$LIMINE_CONF"
+
+# Hide help text for cleaner look
+if grep -q '^interface_help_hidden:' "$LIMINE_CONF"; then
+    sed -i 's/^interface_help_hidden:.*/interface_help_hidden: yes/' "$LIMINE_CONF"
+else
+    sed -i '/^interface_resolution:/a interface_help_hidden: yes' "$LIMINE_CONF"
 fi
 
 # Set branding to a clean space (hides default "Limine" text)
@@ -51,13 +62,27 @@ sed -i 's/^interface_branding:.*/interface_branding: /' "$LIMINE_CONF"
 info "Removing Windows Boot Manager entry..."
 sed -i '/\/\/Windows Boot Manager/,/^[[:space:]]*image_path:.*bootmgfw\.efi/d' "$LIMINE_CONF"
 
+# Rename entries to clean display names
+info "Renaming boot entries..."
+sed -i 's|^/+CachyOS|/+CachyOS|' "$LIMINE_CONF"  # Keep as-is (already clean)
+sed -i 's|^[[:space:]]*//linux-cachyos-lts$|  //CachyOS LTS|' "$LIMINE_CONF"
+sed -i 's|^[[:space:]]*//linux-cachyos$|  //CachyOS|' "$LIMINE_CONF"
+sed -i 's|^[[:space:]]*//Snapshots|  //Snapshots|' "$LIMINE_CONF"
+
 info "Done! Changes applied to $LIMINE_CONF"
 info "Backup saved as $LIMINE_CONF.bak"
 echo ""
 info "Summary:"
 echo "  - Timeout: 3 seconds"
-echo "  - Default entry: 1 (CachyOS)"
+echo "  - Default entry: CachyOS/CachyOS (path-based, selects CachyOS subentry)"
 echo "  - Wallpaper: hobbit-tri-split.jpg"
-echo "  - Interface resolution: 3840x2160"
+echo "  - Interface resolution: 3840x2160 (explicit, avoids bad auto-detect)"
+echo "  - Font scale: default (1x1)"
+echo "  - Help text: hidden"
 echo "  - Branding: hidden"
 echo "  - remember_last_entry: removed"
+echo "  - Windows entry: removed"
+echo "  - Entry names: cleaned up"
+echo ""
+warn "Note: limine-entry-tool may overwrite entry names on kernel updates."
+warn "Re-run this script after kernel updates if names revert."
