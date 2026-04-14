@@ -58,9 +58,27 @@ install_theme() {
 enable_sddm() {
     if systemctl is-active --quiet sddm; then
         info "SDDM is already running"
+    elif systemctl is-enabled --quiet sddm 2>/dev/null; then
+        info "SDDM is already enabled"
     else
-        info "Enabling SDDM service..."
-        sudo systemctl enable sddm
+        local dm_symlink="/etc/systemd/system/display-manager.service"
+        if [[ -L "$dm_symlink" ]]; then
+            local current_dm
+            current_dm="$(basename "$(readlink "$dm_symlink")" .service)"
+            warn "Another display manager is active: $current_dm"
+            read -rp "Disable $current_dm and enable SDDM instead? [Y/n] " ans
+            if [[ "${ans,,}" != "n" ]]; then
+                info "Disabling $current_dm..."
+                sudo systemctl disable "$current_dm"
+                info "Enabling SDDM..."
+                sudo systemctl enable sddm
+            else
+                warn "Skipping — SDDM will not be enabled"
+            fi
+        else
+            info "Enabling SDDM service..."
+            sudo systemctl enable sddm
+        fi
     fi
 }
 
