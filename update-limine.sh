@@ -29,8 +29,9 @@ info "Updating limine.conf..."
 # timeout: 3 seconds
 sed -i 's/^timeout:.*/timeout: 3/' "$LIMINE_CONF"
 
-# default_entry: use path format "Directory/Entry" to select a specific subentry
-sed -i 's/^default_entry:.*/default_entry: CachyOS\/CachyOS/' "$LIMINE_CONF"
+# default_entry: 2 selects first sub-entry inside expanded CachyOS directory
+# (entry 1 = CachyOS directory header, entry 2 = first kernel)
+sed -i 's/^default_entry:.*/default_entry: 2/' "$LIMINE_CONF"
 
 # Remove remember_last_entry
 sed -i '/^remember_last_entry:/d' "$LIMINE_CONF"
@@ -38,12 +39,9 @@ sed -i '/^remember_last_entry:/d' "$LIMINE_CONF"
 # Update wallpaper
 sed -i 's|^wallpaper:.*|wallpaper: boot():/limine-wallpaper.jpg|' "$LIMINE_CONF"
 
-# Interface resolution: explicitly set 4K to avoid Limine's auto-detect picking a bad mode
-if grep -q '^interface_resolution:' "$LIMINE_CONF"; then
-    sed -i 's/^interface_resolution:.*/interface_resolution: 3840x2160/' "$LIMINE_CONF"
-else
-    sed -i '/^wallpaper:/a interface_resolution: 3840x2160' "$LIMINE_CONF"
-fi
+# Interface resolution: remove to let Limine auto-detect the best available mode
+# AMD RDNA2 GPUs typically support native resolution via UEFI GOP
+sed -i '/^interface_resolution:/d' "$LIMINE_CONF"
 
 # Remove term_font_scale to use default (1x1) — avoids blocky oversized font
 sed -i '/^term_font_scale:/d' "$LIMINE_CONF"
@@ -51,9 +49,14 @@ sed -i '/^term_font_scale:/d' "$LIMINE_CONF"
 # Hide help text for cleaner look
 if grep -q '^interface_help_hidden:' "$LIMINE_CONF"; then
     sed -i 's/^interface_help_hidden:.*/interface_help_hidden: yes/' "$LIMINE_CONF"
-else
-    sed -i '/^interface_resolution:/a interface_help_hidden: yes' "$LIMINE_CONF"
+elif ! grep -q '^interface_help_hidden:' "$LIMINE_CONF"; then
+    sed -i '/^wallpaper:/a interface_help_hidden: yes' "$LIMINE_CONF"
 fi
+
+# Make terminal background fully transparent so wallpaper shows through
+# Limine uses TTRRGGBB where ff = fully transparent, 00 = fully opaque
+sed -i 's/^term_background:.*/term_background: ffffffff/' "$LIMINE_CONF"
+sed -i 's/^term_background_bright:.*/term_background_bright: ffffffff/' "$LIMINE_CONF"
 
 # Set branding to a clean space (hides default "Limine" text)
 sed -i 's/^interface_branding:.*/interface_branding: /' "$LIMINE_CONF"
