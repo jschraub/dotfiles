@@ -7,22 +7,37 @@ Rectangle {
     height: 480
     color: "#1e1e2e"
 
-    property int sessionIndex: sessionModel.lastIndex
+    property int sessionIndex: -1
+    property int userIndex: userModel.lastIndex
     property string userName: userModel.lastUser
     property bool loginFailed: false
     property string fontFamily: "CaskaydiaCove Nerd Font"
+    property string infoMessage: ""
+    property bool fingerprintWaiting: false
 
-    TextConstants { id: textConstants }
+    function doLogin() {
+        sddm.login(userName, passwordField.text, sessionIndex)
+    }
 
     Connections {
         target: sddm
         function onLoginSucceeded() {
             loginFailed = false
+            fingerprintWaiting = false
+            infoMessage = ""
         }
         function onLoginFailed() {
             loginFailed = true
+            fingerprintWaiting = false
+            infoMessage = ""
             passwordField.text = ""
             errorAnimation.start()
+        }
+        function onInformationMessage(message) {
+            infoMessage = message
+            if (/finger|swipe|touch|place|verify/i.test(message)) {
+                fingerprintWaiting = true
+            }
         }
     }
 
@@ -134,8 +149,6 @@ Rectangle {
                 height: 100
                 visible: avatarSource.status === Image.Ready
 
-                property var imgSrc: Qt.resolvedUrl("face.icon")
-
                 onPaint: {
                     var ctx = getContext("2d")
                     ctx.clearRect(0, 0, width, height)
@@ -144,28 +157,66 @@ Rectangle {
                     ctx.arc(width / 2, height / 2, width / 2, 0, Math.PI * 2)
                     ctx.closePath()
                     ctx.clip()
-                    ctx.drawImage(imgSrc, 0, 0, width, height)
+                    ctx.drawImage(avatarSource.source, 0, 0, width, height)
                     ctx.restore()
                 }
 
-                Component.onCompleted: {
-                    loadImage(imgSrc)
-                }
-
-                onImageLoaded: {
-                    requestPaint()
-                }
+                Component.onCompleted: loadImage(avatarSource.source)
+                onImageLoaded: requestPaint()
             }
         }
 
-        // ── Username display ──
-        Text {
+        // ── Username selector ──
+        Row {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: userName
-            color: "#cdd6f4"
-            font.pixelSize: 18
-            font.family: fontFamily
-            renderType: Text.NativeRendering
+            spacing: 10
+
+            Text {
+                visible: userModel.count > 1
+                text: "◀"
+                color: prevUserArea.containsMouse ? "#fab387" : "#6c7086"
+                font.pixelSize: 18
+                anchors.verticalCenter: parent.verticalCenter
+                renderType: Text.NativeRendering
+                MouseArea {
+                    id: prevUserArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        root.userIndex = (root.userIndex - 1 + userModel.count) % userModel.count
+                        root.userName = userModel.data(userModel.index(root.userIndex, 0), Qt.UserRole + 1)
+                    }
+                }
+            }
+
+            Text {
+                text: userName
+                color: "#cdd6f4"
+                font.pixelSize: 18
+                font.family: fontFamily
+                anchors.verticalCenter: parent.verticalCenter
+                renderType: Text.NativeRendering
+            }
+
+            Text {
+                visible: userModel.count > 1
+                text: "▶"
+                color: nextUserArea.containsMouse ? "#fab387" : "#6c7086"
+                font.pixelSize: 18
+                anchors.verticalCenter: parent.verticalCenter
+                renderType: Text.NativeRendering
+                MouseArea {
+                    id: nextUserArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        root.userIndex = (root.userIndex + 1) % userModel.count
+                        root.userName = userModel.data(userModel.index(root.userIndex, 0), Qt.UserRole + 1)
+                    }
+                }
+            }
         }
 
         // ── Password Input Field ──
@@ -179,12 +230,15 @@ Rectangle {
             border.width: 4
             anchors.horizontalCenter: parent.horizontalCenter
 
+            property real shakeOffset: 0
+            transform: Translate { x: inputContainer.shakeOffset }
+
             SequentialAnimation {
                 id: errorAnimation
-                NumberAnimation { target: inputContainer; property: "x"; to: inputContainer.x - 10; duration: 50 }
-                NumberAnimation { target: inputContainer; property: "x"; to: inputContainer.x + 10; duration: 50 }
-                NumberAnimation { target: inputContainer; property: "x"; to: inputContainer.x - 10; duration: 50 }
-                NumberAnimation { target: inputContainer; property: "x"; to: inputContainer.x; duration: 50 }
+                NumberAnimation { target: inputContainer; property: "shakeOffset"; to: -10; duration: 50 }
+                NumberAnimation { target: inputContainer; property: "shakeOffset"; to: 10; duration: 50 }
+                NumberAnimation { target: inputContainer; property: "shakeOffset"; to: -10; duration: 50 }
+                NumberAnimation { target: inputContainer; property: "shakeOffset"; to: 0; duration: 50 }
             }
 
             Row {
@@ -222,7 +276,6 @@ Rectangle {
                     // Placeholder
                     Text {
                         anchors.fill: parent
-                        anchors.verticalCenter: parent.verticalCenter
                         verticalAlignment: Text.AlignVCenter
                         text: "Password"
                         color: "#6c7086"
@@ -233,19 +286,22 @@ Rectangle {
                         renderType: Text.NativeRendering
                     }
 
-                    Keys.onReturnPressed: sddm.login(userName, passwordField.text, sessionIndex)
-                    Keys.onEnterPressed: sddm.login(userName, passwordField.text, sessionIndex)
+                    Keys.onReturnPressed: doLogin()
+                    Keys.onEnterPressed: doLogin()
 
                     KeyNavigation.tab: loginButton
                 }
             }
         }
 
-        // ── Error text ──
+        // ── Info / fingerprint text ──
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: loginFailed ? "Login failed. Try again." : ""
-            color: "#f38ba8"
+            text: fingerprintWaiting ? "󰍬  Touch fingerprint sensor" :
+                  infoMessage !== "" ? infoMessage :
+                  loginFailed ? "Login failed. Try again." : ""
+            color: fingerprintWaiting ? "#a6e3a1" :
+                   infoMessage !== "" ? "#cdd6f4" : "#f38ba8"
             font.pixelSize: 14
             font.family: fontFamily
             font.italic: true
@@ -259,19 +315,24 @@ Rectangle {
         width: 120
         height: 40
         radius: 20
-        color: loginButtonArea.containsMouse ? "#fab387" : "transparent"
+        color: loginButtonArea.containsMouse || activeFocus ? "#fab387" : "transparent"
         border.color: "#fab387"
         border.width: 2
+        activeFocusOnTab: true
         anchors {
             top: centerColumn.bottom
             topMargin: 10
             horizontalCenter: parent.horizontalCenter
         }
 
+        Keys.onReturnPressed: doLogin()
+        Keys.onEnterPressed: doLogin()
+        Keys.onSpacePressed: doLogin()
+
         Text {
             anchors.centerIn: parent
             text: "Login"
-            color: loginButtonArea.containsMouse ? "#1e1e2e" : "#fab387"
+            color: loginButtonArea.containsMouse || loginButton.activeFocus ? "#1e1e2e" : "#fab387"
             font.pixelSize: 16
             font.family: fontFamily
             font.bold: true
@@ -283,7 +344,7 @@ Rectangle {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            onClicked: sddm.login(userName, passwordField.text, sessionIndex)
+            onClicked: doLogin()
         }
 
         Behavior on color { ColorAnimation { duration: 150 } }
@@ -441,7 +502,7 @@ Rectangle {
         border.color: "#45475a"
         border.width: 2
         clip: true
-        visible: sessionSelector.expanded
+        visible: height > 0
         z: 100
 
         // Position dynamically relative to session button
@@ -465,12 +526,13 @@ Rectangle {
             interactive: false
 
             delegate: Rectangle {
+                id: sessionDelegate
                 width: sessionListView.width
                 height: 32
                 radius: 8
 
-                property int sessionIdx: index
-                property string sessionName: model.name
+                required property int index
+                required property string name
 
                 color: itemMouseArea.containsMouse ? "#45475a" : "transparent"
 
@@ -480,8 +542,8 @@ Rectangle {
                     anchors.left: parent.left
                     anchors.leftMargin: 12
                     anchors.verticalCenter: parent.verticalCenter
-                    text: parent.sessionName
-                    color: parent.sessionIdx === root.sessionIndex ? "#fab387" : "#cdd6f4"
+                    text: sessionDelegate.name
+                    color: sessionDelegate.index === root.sessionIndex ? "#fab387" : "#cdd6f4"
                     font.pixelSize: 14
                     font.family: root.fontFamily
                     renderType: Text.NativeRendering
@@ -493,9 +555,9 @@ Rectangle {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
-                        root.sessionIndex = parent.sessionIdx
-                        sessionText.text = parent.sessionName
+                        root.sessionIndex = sessionDelegate.index
                         sessionSelector.expanded = false
+                        passwordField.forceActiveFocus()
                     }
                 }
             }
@@ -516,7 +578,9 @@ Rectangle {
     Repeater {
         id: sessionNames
         model: sessionModel
-        Item { property string name: model.name }
+        Item {
+            required property string name
+        }
     }
 
     function sessionName(idx) {
@@ -529,7 +593,13 @@ Rectangle {
 
     // ── Focus password on load ──
     Component.onCompleted: {
+        // Ensure userName is populated from the user model
+        if (root.userName === "" && userModel.count > 0) {
+            root.userIndex = 0
+            root.userName = userModel.data(userModel.index(0, 0), Qt.UserRole + 1)
+        }
+        var idx = sessionModel.lastIndex
+        root.sessionIndex = (idx >= 0 && idx < sessionModel.rowCount()) ? idx : 0
         passwordField.forceActiveFocus()
-        sessionText.text = sessionName(root.sessionIndex)
     }
 }

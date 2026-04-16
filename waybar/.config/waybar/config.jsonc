@@ -3,6 +3,7 @@
   "modules-left": ["hyprland/workspaces"],
   "modules-center": ["hyprland/window"],
   "modules-right": [
+    "custom/cast",
     "network",
     "bluetooth",
     "pulseaudio",
@@ -60,5 +61,11 @@
     "format": "<span size='13000' foreground='#f38ba8'>⏻ </span>",
     "on-click": "~/.local/bin/wlogout-centered.sh",
     "tooltip-format": "Power Menu",
+  },
+  "custom/cast": {
+    "format": "<span size='13000' foreground='#cba6f7'>󰤉 </span>",
+    "tooltip": true,
+    "tooltip-format": "Launch Miracast (AMD iGPU)",
+    "on-click": "env LIBVA_DRIVER_NAME=radeonsi gnome-network-displays",
   },
 }

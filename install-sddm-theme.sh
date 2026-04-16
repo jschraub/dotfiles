@@ -191,6 +191,18 @@ verify_sddm() {
         ok=false
     fi
 
+    # Ensure SDDM state file is writable so session selection persists
+    local state_file="/var/lib/sddm/state.conf"
+    if [[ -f "$state_file" ]]; then
+        local owner
+        owner="$(stat -c '%U' "$state_file")"
+        if [[ "$owner" != "sddm" ]]; then
+            warn "State file $state_file is owned by $owner instead of sddm"
+            sudo chown sddm:sddm "$state_file"
+            info "Fixed ownership of $state_file"
+        fi
+    fi
+
     if $ok; then
         info "SDDM configuration looks good"
     else
