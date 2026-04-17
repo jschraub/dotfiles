@@ -1,0 +1,22 @@
+[background]
+# Uses the same Tolkien background from the SDDM theme
+path = "/usr/share/backgrounds/greeter-tolkien.jpg"
+fit = "Cover"
+
+[GTK]
+application_prefer_dark_theme = true
+cursor_theme_name = "Adwaita"
+cursor_blink = true
+font_name = "CaskaydiaCove Nerd Font 16"
+icon_theme_name = "Adwaita"
+
+[commands]
+reboot = ["systemctl", "reboot"]
+poweroff = ["systemctl", "poweroff"]
+
+[appearance]
+greeting_msg = "Welcome back!"
+
+[widget.clock]
+format = "%a %H:%M"
+resolution = "500ms"
