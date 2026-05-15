@@ -1,0 +1,12 @@
+{
+  "name": "claude-skills",
+  "owner": {
+    "name": "jars"
+  },
+  "plugins": [
+    {
+      "name": "claude-skills",
+      "source": "."
+    }
+  ]
+}
