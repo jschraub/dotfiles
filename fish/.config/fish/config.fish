@@ -1,5 +1,10 @@
 source /usr/share/cachyos-fish-config/cachyos-config.fish
 
+# Login shell is bash (so VS Code Remote-SSH's POSIX bootstrap works); bash execs
+# fish for interactive sessions. Point $SHELL back at fish so tools that spawn
+# $SHELL get fish. Safe: VS Code uses the passwd login shell, not $SHELL.
+set -gx SHELL (command -v fish)
+
 # Set up fzf key bindings
 fzf --fish | source
 
