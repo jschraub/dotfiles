@@ -85,6 +85,7 @@ if command -v git &>/dev/null; then
 fi
 
 # ── 3. TIME ──────────────────────────────────────────────────────────────────
+# 24-hour HH:MM — always exactly 5 chars, so the segment width never shifts.
 time_now=$(date +%H:%M)
 
 # ── 4. CLAUDE ────────────────────────────────────────────────────────────────
@@ -121,11 +122,11 @@ icon_fgs=()
 icons=()
 texts=()
 
+bgs+=("$bg_time");     icon_fgs+=("$icon_fg_time");       icons+=("$icon_time");   texts+=("$time_now")
 bgs+=("$bg_dir");      icon_fgs+=("$icon_fg_dir");        icons+=("$icon_folder"); texts+=("$cwd_display")
 if [ -n "$git_branch" ]; then
     bgs+=("$git_bg");  icon_fgs+=("$git_icon_fg");        icons+=("$icon_git");    texts+=("$git_branch")
 fi
-bgs+=("$bg_time");     icon_fgs+=("$icon_fg_time");       icons+=("$icon_time");   texts+=("$time_now")
 bgs+=("$bg_claude");   icon_fgs+=("$icon_fg_claude");     icons+=("$icon_claude"); texts+=("$claude_text")
 if [ -n "$rate_text" ]; then
     bgs+=("$bg_rate"); icon_fgs+=("$icon_fg_rate");       icons+=("$icon_rate");   texts+=("$rate_text")
