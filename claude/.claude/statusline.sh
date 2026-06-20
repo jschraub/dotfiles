@@ -25,13 +25,15 @@ cat_crust="17;17;27"
 reset=$'\e[0m'
 bold=$'\e[1m'
 
-# Per-segment background colors (pastel Catppuccin hues)
-bg_dir="$cat_blue"          # folder
-bg_git_clean="$cat_green"   # git, clean
-bg_git_dirty="$cat_peach"   # git, dirty
-bg_time="$cat_sapphire"     # clock
-bg_claude="$cat_mauve"      # claude / model
-bg_rate="$cat_yellow"       # rate limits
+# Per-segment background colors — pastel Catppuccin hues arranged as a
+# left→right spectrum sweep: violet → blue → cyan → green → yellow → warm-red
+bg_user="$cat_mauve"        # user            (violet)
+bg_time="$cat_blue"         # clock           (blue)
+bg_dir="$cat_sapphire"      # folder          (cyan)
+bg_git_clean="$cat_green"   # git, clean      (green)
+bg_git_dirty="$cat_peach"   # git, dirty      (orange — breaks gradient to stand out)
+bg_claude="$cat_yellow"     # claude / model  (yellow)
+bg_rate="$cat_maroon"       # rate limits     (warm red)
 
 # Per-segment icon foreground — same dark Crust as text (bold for emphasis)
 icon_fg_dir="$cat_crust"
@@ -40,15 +42,18 @@ icon_fg_git_dirty="$cat_crust"
 icon_fg_time="$cat_crust"
 icon_fg_claude="$cat_crust"
 icon_fg_rate="$cat_crust"
+icon_fg_user="$cat_crust"
 
 fg_text="$cat_crust"             # dark text on every pastel bg
 
 # Powerline glyphs (Nerd Font)
 cap_left=$'\xee\x82\xb6'     # nf-pl-right_soft_divider (rounded left cap)
+cap_right=$'\xee\x82\xb4'    # nf-pl-left_soft_divider  (rounded right cap)
 divider=$'\xee\x82\xb0'      # nf-pl-left_hard_divider  (chevron between/end)
 
 # Icons (Nerd Font) — \u for BMP (4-hex), \U for SMP (8-hex)
 # Each icon constant ends with exactly one trailing space.
+icon_user=$'\xef\x80\x87 '           # nf-fa-user
 icon_folder=$'\xef\x81\xbb '         # nf-fa-folder
 icon_git=$'\xee\x82\xa0 '            # nf-dev-git_branch
 icon_time=$'\xef\x80\x97 '           # nf-fa-clock_o
@@ -60,6 +65,10 @@ icon_reset=$'\xef\x80\xa1 '          # nf-fa-arrow_right
 
 set_bg() { printf '\e[48;2;%sm' "$1"; }
 set_fg() { printf '\e[38;2;%sm' "$1"; }
+
+# ── 0. USER ──────────────────────────────────────────────────────────────────
+user_name=$(whoami 2>/dev/null)
+[ -z "$user_name" ] && user_name="$USER"
 
 # ── 1. FOLDER ────────────────────────────────────────────────────────────────
 cwd=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // empty')
@@ -122,6 +131,7 @@ icon_fgs=()
 icons=()
 texts=()
 
+bgs+=("$bg_user");     icon_fgs+=("$icon_fg_user");       icons+=("$icon_user");   texts+=("$user_name")
 bgs+=("$bg_time");     icon_fgs+=("$icon_fg_time");       icons+=("$icon_time");   texts+=("$time_now")
 bgs+=("$bg_dir");      icon_fgs+=("$icon_fg_dir");        icons+=("$icon_folder"); texts+=("$cwd_display")
 if [ -n "$git_branch" ]; then
@@ -153,8 +163,8 @@ for ((i=0; i<n; i++)); do
         # Chevron blends into next segment's bg
         out+="$(set_bg "${bgs[i+1]}")$(set_fg "$bg")${divider}${reset}"
     else
-        # Final chevron fades to terminal default
-        out+="$(set_fg "$bg")${divider}${reset}"
+        # Final rounded cap fades to terminal default
+        out+="$(set_fg "$bg")${cap_right}${reset}"
     fi
 done
 
