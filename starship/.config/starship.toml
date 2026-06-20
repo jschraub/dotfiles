@@ -1,15 +1,20 @@
 "$schema" = 'https://starship.rs/config-schema.json'
 
+# Powerline prompt mirroring the Claude Code statusline:
+# rounded left cap -> user -> time -> directory -> git -> languages -> docker -> rounded right cap.
+# Catppuccin Mocha spectrum sweep (violet -> blue -> cyan -> green -> yellow -> warm-red),
+# dark-crust text on pastel segments, bold Nerd Font icons, chevron dividers.
 format = """
-[](surface0)\
-$os\
+[](fg:mauve)\
 $username\
-[](bg:peach fg:surface0)\
+[](fg:mauve bg:blue)\
+$time\
+[](fg:blue bg:sapphire)\
 $directory\
-[](fg:peach bg:green)\
+[](fg:sapphire bg:green)\
 $git_branch\
 $git_status\
-[](fg:green bg:teal)\
+[](fg:green bg:yellow)\
 $c\
 $rust\
 $golang\
@@ -19,11 +24,9 @@ $java\
 $kotlin\
 $haskell\
 $python\
-[](fg:teal bg:blue)\
+[](fg:yellow bg:maroon)\
 $docker_context\
-[](fg:blue bg:purple)\
-$time\
-[ ](fg:purple)\
+[](fg:maroon)\
 $line_break$character"""
 
 palette = 'catppuccin_mocha'
@@ -44,6 +47,7 @@ color_yellow = '#d79921'
 rosewater = "#f5e0dc"
 flamingo = "#f2cdcd"
 pink = "#f5c2e7"
+mauve = "#cba6f7"
 orange = "#cba6f7"
 red = "#f38ba8"
 maroon = "#eba0ac"
@@ -68,9 +72,9 @@ base = "#1e1e2e"
 mantle = "#181825"
 crust = "#11111b"
 
+# 0. USER - violet, fa-user icon (statusline's first segment)
 [os]
-disabled = false
-style = "bg:surface0 fg:text"
+disabled = true
 
 [os.symbols]
 Windows = "󰍲"
@@ -95,13 +99,21 @@ RedHatEnterprise = "󱄛"
 
 [username]
 show_always = true
-style_user = "bg:surface0 fg:text"
-style_root = "bg:surface0 fg:text"
-format = '[ $user ]($style)'
+style_user = "bg:mauve fg:crust"
+style_root = "bg:mauve fg:crust"
+format = '[  ]($style bold)[$user ]($style)'
 
+# 1. TIME - blue, clock icon (24h HH:MM)
+[time]
+disabled = false
+time_format = "%R"
+style = "bg:blue fg:crust"
+format = '[  ]($style bold)[$time ]($style)'
+
+# 2. DIRECTORY - sapphire, folder icon
 [directory]
-style = "fg:mantle bg:peach"
-format = "[ $path ]($style)"
+style = "bg:sapphire fg:crust"
+format = '[  ]($style bold)[$path ]($style)'
 truncation_length = 3
 truncation_symbol = "…/"
 
@@ -112,70 +124,68 @@ truncation_symbol = "…/"
 "Pictures" = " "
 "Developer" = "󰲋 "
 
+# 3. GIT - green; starship can't switch bg on dirty, so $git_status carries
+#    the dirty marker (the analog of the statusline's trailing ` *`)
 [git_branch]
-symbol = ""
-style = "bg:teal"
-format = '[[ $symbol $branch ](fg:base bg:green)]($style)'
+symbol = ""
+style = "bg:green fg:crust"
+format = '[ $symbol ]($style bold)[$branch ]($style)'
 
 [git_status]
-style = "bg:teal"
-format = '[[($all_status$ahead_behind )](fg:base bg:green)]($style)'
+style = "bg:green fg:crust"
+format = '[($all_status$ahead_behind )]($style)'
 
+# 4. LANGUAGES - yellow (statusline's claude/model slot)
 [nodejs]
 symbol = ""
-style = "bg:teal"
-format = '[[ $symbol( $version) ](fg:base bg:teal)]($style)'
+style = "bg:yellow fg:crust"
+format = '[ $symbol( $version) ]($style)'
 
 [c]
 symbol = " "
-style = "bg:teal"
-format = '[[ $symbol( $version) ](fg:base bg:teal)]($style)'
+style = "bg:yellow fg:crust"
+format = '[ $symbol( $version) ]($style)'
 
 [rust]
 symbol = ""
-style = "bg:teal"
-format = '[[ $symbol( $version) ](fg:base bg:teal)]($style)'
+style = "bg:yellow fg:crust"
+format = '[ $symbol( $version) ]($style)'
 
 [golang]
 symbol = ""
-style = "bg:teal"
-format = '[[ $symbol( $version) ](fg:base bg:teal)]($style)'
+style = "bg:yellow fg:crust"
+format = '[ $symbol( $version) ]($style)'
 
 [php]
 symbol = ""
-style = "bg:teal"
-format = '[[ $symbol( $version) ](fg:base bg:teal)]($style)'
+style = "bg:yellow fg:crust"
+format = '[ $symbol( $version) ]($style)'
 
 [java]
 symbol = " "
-style = "bg:teal"
-format = '[[ $symbol( $version) ](fg:base bg:teal)]($style)'
+style = "bg:yellow fg:crust"
+format = '[ $symbol( $version) ]($style)'
 
 [kotlin]
 symbol = ""
-style = "bg:teal"
-format = '[[ $symbol( $version) ](fg:base bg:teal)]($style)'
+style = "bg:yellow fg:crust"
+format = '[ $symbol( $version) ]($style)'
 
 [haskell]
 symbol = ""
-style = "bg:teal"
-format = '[[ $symbol( $version) ](fg:base bg:teal)]($style)'
+style = "bg:yellow fg:crust"
+format = '[ $symbol( $version) ]($style)'
 
 [python]
 symbol = ""
-style = "bg:teal"
-format = '[[ $symbol( $version) ](fg:base bg:teal)]($style)'
+style = "bg:yellow fg:crust"
+format = '[ $symbol( $version) ]($style)'
 
+# 5. DOCKER - warm-red maroon (statusline's rate-limit slot)
 [docker_context]
 symbol = ""
-style = "bg:mantle"
-format = '[[ $symbol( $context) ](fg:#83a598 bg:blue)]($style)'
-
-[time]
-disabled = false
-time_format = "%R"
-style = "bg:peach"
-format = '[[  $time ](fg:mantle bg:purple)]($style)'
+style = "bg:maroon fg:crust"
+format = '[ $symbol( $context) ]($style)'
 
 [line_break]
 disabled = false
@@ -185,6 +195,6 @@ disabled = false
 success_symbol = '[](bold fg:green)'
 error_symbol = '[](bold fg:red)'
 vimcmd_symbol = '[](bold fg:green)'
-vimcmd_replace_one_symbol = '[](bold fg:purple)'
-vimcmd_replace_symbol = '[](bold fg:purple)'
+vimcmd_replace_one_symbol = '[](bold fg:mauve)'
+vimcmd_replace_symbol = '[](bold fg:mauve)'
 vimcmd_visual_symbol = '[](bold fg:lavender)'
