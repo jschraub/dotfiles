@@ -1,12 +1,14 @@
 {
   "name": "claude-skills",
+  "description": "Jared's personal marketplace of Claude Code skills, served in-place from the dotfiles repo.",
   "owner": {
     "name": "jars"
   },
   "plugins": [
     {
       "name": "claude-skills",
-      "source": "./"
+      "source": "./",
+      "description": "Personal collection of Claude Code skills for engineering, productivity, and project workflows."
     }
   ]
 }

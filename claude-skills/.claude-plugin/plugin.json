@@ -1,5 +1,12 @@
 {
   "name": "claude-skills",
+  "version": "1.0.0",
+  "description": "Jared's personal collection of Claude Code skills for engineering, productivity, and project workflows.",
+  "author": {
+    "name": "Jared Schraub",
+    "email": "jaredschraub@outlook.com",
+    "url": "https://github.com/jschraub"
+  },
   "skills": [
     "./skills/engineering/diagnose",
     "./skills/engineering/grill-with-docs",
