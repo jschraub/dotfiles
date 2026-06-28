@@ -220,6 +220,11 @@ hl.bind(mainMod .. " + mouse_up",   hl.dsp.focus({ workspace = "e-1" }))
 hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(),   { mouse = true })
 hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 
+-- Screenshots (grimblast via ~/.local/bin/screenshot.sh; copy to clipboard + save to ~/Pictures/Screenshots)
+hl.bind("Print",               hl.dsp.exec_cmd("~/.local/bin/screenshot.sh area"))   -- drag-to-select a region (frozen)
+hl.bind("SHIFT + Print",       hl.dsp.exec_cmd("~/.local/bin/screenshot.sh active")) -- focused window
+hl.bind(mainMod .. " + Print", hl.dsp.exec_cmd("~/.local/bin/screenshot.sh output")) -- focused monitor
+
 -- Multimedia keys (locked = active even on lockscreen, repeating = key-repeat)
 hl.bind("XF86AudioRaiseVolume",  hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"), { locked = true, repeating = true })
 hl.bind("XF86AudioLowerVolume",  hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"),      { locked = true, repeating = true })
