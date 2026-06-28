@@ -8,6 +8,8 @@ PAM_SRC="$SCRIPT_DIR/greetd-setup/etc/pam.d/greetd-greeter"
 PAM_DEST="/etc/pam.d/greetd-greeter"
 BG_SRC="$SCRIPT_DIR/backgrounds/.config/backgrounds/tolkien/balrog.jpg"
 BG_DEST="/usr/share/backgrounds/greeter-tolkien.jpg"
+AVATAR_SRC="$SCRIPT_DIR/greetd-setup/greeter-avatar.png"
+AVATAR_DEST="/usr/share/backgrounds/greeter-avatar.png"
 
 info()  { printf '\033[1;34m::\033[0m %s\n' "$*"; }
 warn()  { printf '\033[1;33m::\033[0m %s\n' "$*"; }
@@ -70,6 +72,19 @@ install_configs() {
     else
         warn "Background image not found at $BG_SRC"
         warn "You can manually place a background at $BG_DEST"
+    fi
+
+    # User avatar (regreet.css paints it onto the login form — ReGreet has no
+    # avatar widget, so we ship a pre-rendered circular image and CSS it in).
+    # Must live on a system path: the greeter runs as 'greeter' and can't read
+    # your home directory.
+    if [[ -f "$AVATAR_SRC" ]]; then
+        sudo mkdir -p "$(dirname "$AVATAR_DEST")"
+        sudo cp "$AVATAR_SRC" "$AVATAR_DEST"
+        sudo chmod 644 "$AVATAR_DEST"
+        info "Avatar image installed to $AVATAR_DEST"
+    else
+        warn "Avatar image not found at $AVATAR_SRC"
     fi
 }
 
@@ -182,6 +197,11 @@ verify_config() {
 
     if [[ ! -f "$BG_DEST" ]]; then
         warn "Background image not found at $BG_DEST"
+        ok=false
+    fi
+
+    if [[ ! -f "$AVATAR_DEST" ]]; then
+        warn "Avatar image not found at $AVATAR_DEST"
         ok=false
     fi
 

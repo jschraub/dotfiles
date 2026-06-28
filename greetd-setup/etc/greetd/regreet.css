@@ -22,9 +22,20 @@ frame.background {
   padding: 20px;
 }
 
-/* ── Grid inside login box ── */
+/* ── Grid inside login box (also hosts the faked user avatar) ── */
 grid {
   color: #cdd6f4;
+
+  /* ReGreet has no avatar widget, so paint a pre-rendered circular image
+   * (peach rim — matches the hyprlock lockscreen avatar) at the top of the
+   * login form. The image is installed to the path below by
+   * install-greetd-regreet.sh; padding-top reserves room so the greeting and
+   * fields sit beneath it. Tune background-size / padding-top to taste. */
+  background-image: url("/usr/share/backgrounds/greeter-avatar.png");
+  background-repeat: no-repeat;
+  background-position: center top;
+  background-size: 100px 100px;
+  padding-top: 120px;
 }
 
 /* ── All labels ── */
