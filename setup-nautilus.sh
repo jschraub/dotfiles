@@ -57,49 +57,11 @@ configure_nautilus() {
     gsettings set org.gnome.nautilus.preferences recursive-search 'local-only'
 }
 
-# ── Switch Hyprland file manager variable ──
-update_hyprland_conf() {
-    local conf="$HOME/.config/hypr/hyprland.conf"
-
-    if [[ ! -f "$conf" ]]; then
-        warn "Hyprland config not found at $conf — skipping"
-        return
-    fi
-
-    if grep -q '^\$fileManager = nautilus' "$conf"; then
-        info "Hyprland already set to nautilus"
-        return
-    fi
-
-    info "Updating Hyprland fileManager to nautilus..."
-    sed -i 's/^\$fileManager = .*/$fileManager = nautilus/' "$conf"
-}
-
-# ── Switch polkit agent ──
-update_polkit_agent() {
-    local conf="$HOME/.config/hypr/hyprland.conf"
-
-    if [[ ! -f "$conf" ]]; then
-        warn "Hyprland config not found at $conf — skipping"
-        return
-    fi
-
-    if grep -q 'polkit-gnome' "$conf"; then
-        info "Hyprland already using polkit-gnome"
-        return
-    fi
-
-    info "Switching polkit agent to polkit-gnome..."
-    sed -i 's|exec-once = /usr/lib/polkit-kde-authentication-agent-1|exec-once = /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1|' "$conf"
-}
-
 # ── Main ──
 info "Setting up Nautilus..."
 install_packages
 install_gtk4_css
 configure_nautilus
-update_hyprland_conf
-update_polkit_agent
 
 info "Done!"
 echo ""
@@ -110,7 +72,3 @@ echo "  - Default view: list (compact)"
 echo "  - GTK4 settings: gtk-decoration-layout=: (CSD buttons hidden)"
 echo "  - Hidden files: shown"
 echo "  - Sort order: name ascending"
-echo "  - Hyprland \$fileManager: nautilus"
-echo "  - Hyprland polkit agent: polkit-gnome"
-echo ""
-warn "Restart Hyprland for polkit agent change to take effect."

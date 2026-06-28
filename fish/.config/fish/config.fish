@@ -22,8 +22,6 @@ if status is-interactive
     # mirror the Claude Code statusline). On a new machine `fisher update` reads
     # ../fish_plugins and installs it; if it doesn't pick Tide up, run:
     #   fisher install ilancosman/tide@v6
-    # To revert to starship, uncomment:
-    # eval "$(starship init fish)"
 
     # node version manager (adds a cd hook)
     fnm env --use-on-cd | source
