@@ -32,7 +32,7 @@ hl.monitor({
 local terminal    = "ghostty"
 local fileManager = "nautilus"
 local menu        = "wofi --show drun"
-local browser     = "firefox"
+local browser     = "zen-browser"
 local editor      = "code"
 
 
