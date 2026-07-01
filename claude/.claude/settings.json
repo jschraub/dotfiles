@@ -1,0 +1,22 @@
+{
+  "model": "opus[1m]",
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/statusline.sh"
+  },
+  "enabledPlugins": {
+    "cloudflare@claude-plugins-official": true,
+    "claude-skills@claude-skills": true
+  },
+  "extraKnownMarketplaces": {
+    "claude-skills": {
+      "source": {
+        "source": "directory",
+        "path": "/home/jars/dotfiles/claude-skills"
+      }
+    }
+  },
+  "effortLevel": "xhigh",
+  "tui": "default",
+  "theme": "dark"
+}

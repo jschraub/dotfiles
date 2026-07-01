@@ -74,7 +74,7 @@ STOW[backgrounds]="backgrounds"
 LABEL[avatars]="Avatar images (~/.config/avatars)"
 STOW[avatars]="avatars"
 
-LABEL[claude]="Claude Code statusline (~/.claude/statusline.sh)"
+LABEL[claude]="Claude Code config (~/.claude/settings.json + statusline.sh)"
 STOW[claude]="claude"
 
 LABEL[claude-skills]="Claude Code skills plugin (delegates setup-claude-skills.sh)"
