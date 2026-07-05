@@ -36,7 +36,7 @@ DRY_RUN=0
 #   STOW[id]    space-separated stow package dirs to link
 #   HANDLER[id] optional function name overriding the generic install+stow
 
-ORDER=(hyprland waybar wofi wlogout ghostty fish nautilus backgrounds avatars claude claude-skills greetd)
+ORDER=(hyprland waybar wofi wlogout ghostty fish nautilus gaming backgrounds avatars claude claude-skills greetd)
 
 declare -A LABEL PKGS STOW HANDLER
 
@@ -67,6 +67,9 @@ HANDLER[fish]=handle_fish
 
 LABEL[nautilus]="Nautilus file manager + GTK4 tweaks (delegates setup-nautilus.sh)"
 HANDLER[nautilus]=handle_nautilus
+
+LABEL[gaming]="Steam + Lutris game launchers (hypr binds SUPER+G / SUPER+H)"
+PKGS[gaming]="steam lutris"
 
 LABEL[backgrounds]="Wallpapers (~/.config/backgrounds)"
 STOW[backgrounds]="backgrounds"
