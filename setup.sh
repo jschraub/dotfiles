@@ -44,8 +44,8 @@ LABEL[hyprland]="Hyprland compositor + full hypr environment (common + machine p
 PKGS[hyprland]="hyprland hyprpaper hypridle hyprlock hyprpicker grimblast-git swaync polkit-gnome gnome-keyring brightnessctl playerctl wireplumber xdg-desktop-portal-hyprland ttf-cascadia-code-nerd"
 HANDLER[hyprland]=handle_hyprland
 
-LABEL[waybar]="Waybar status bar"
-PKGS[waybar]="waybar"
+LABEL[waybar]="Waybar status bar (+ module click targets: bluetooth/audio/cast)"
+PKGS[waybar]="waybar blueman pavucontrol gnome-network-displays"
 STOW[waybar]="waybar"
 
 LABEL[wofi]="Wofi application launcher"
@@ -53,7 +53,7 @@ PKGS[wofi]="wofi"
 STOW[wofi]="wofi"
 
 LABEL[wlogout]="wlogout power menu (+ centered launcher script)"
-PKGS[wlogout]="wlogout"
+PKGS[wlogout]="wlogout jq"
 STOW[wlogout]="wlogout"
 
 LABEL[ghostty]="Ghostty terminal"
@@ -188,10 +188,10 @@ handle_fish() {
     handle_generic fish
     command -v fish >/dev/null 2>&1 || { warn "fish missing — skipping plugin bootstrap"; return; }
     if [[ $DRY_RUN -eq 1 ]]; then
-        info "[dry-run] would bootstrap fisher + 'fisher update' (Tide, nvm)"
+        info "[dry-run] would bootstrap fisher + 'fisher update' (Tide)"
         return
     fi
-    info "bootstrapping fisher + plugins from fish_plugins (Tide, nvm)..."
+    info "bootstrapping fisher + plugins from fish_plugins (Tide)..."
     fish -c 'functions -q fisher; or curl -sL https://raw.githubusercontent.com/jorgebucaran/fisher/main/functions/fisher.fish | source; and fisher install jorgebucaran/fisher' \
         || warn "fisher bootstrap hiccup"
     fish -c 'fisher update' \
