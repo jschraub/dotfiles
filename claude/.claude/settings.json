@@ -1,5 +1,5 @@
 {
-  "model": "opus[1m]",
+  "model": "claude-fable-5[1m]",
   "statusLine": {
     "type": "command",
     "command": "~/.claude/statusline.sh"
@@ -18,5 +18,6 @@
   },
   "effortLevel": "high",
   "tui": "default",
-  "theme": "dark"
+  "theme": "dark",
+  "agentPushNotifEnabled": true
 }
