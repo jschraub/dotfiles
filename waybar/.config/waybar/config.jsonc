@@ -4,6 +4,7 @@
   "modules-center": ["hyprland/window"],
   "modules-right": [
     "custom/cast",
+    "custom/vpn",
     "network",
     "bluetooth",
     "pulseaudio",
@@ -35,11 +36,15 @@
   },
   "network": {
     "format-wifi": "<span size='13000' foreground='#f5e0dc'> </span> {essid}",
-    "format-ethernet": "<span size='13000' foreground='#f5e0dc'>󰤭 </span> Disconnected",
+    "format-ethernet": "<span size='13000' foreground='#f5e0dc'>󰈀 </span> {ifname}",
     "format-linked": "{ifname} (No IP) ",
     "format-disconnected": "<span size='13000' foreground='#f5e0dc'> </span> Disconnected",
-    "tooltip-format-wifi": "Signal Strenght: {signalStrength}%",
-    "on-click": "ghostty --title='nmtui-float' -e nmtui",
+    "format-disabled": "<span size='13000' foreground='#f5e0dc'>󰤭 </span> Wifi off",
+    "tooltip-format-wifi": "{essid}\nSignal strength: {signalStrength}%\nIP: {ipaddr}",
+    "tooltip-format-ethernet": "{ifname}\nIP: {ipaddr}",
+    "tooltip-format-disconnected": "Disconnected",
+    "on-click": "~/.local/bin/network-menu.sh",
+    "on-click-right": "ghostty --title='nmtui-float' -e nmtui",
   },
   "bluetooth": {
     "format": "<span size='13000' foreground='#74c7ec'> </span> {status}",
@@ -59,6 +64,12 @@
       "default": ["", "", " "],
     },
     "on-click": "pavucontrol",
+  },
+  "custom/vpn": {
+    "exec": "~/.local/bin/vpn-status.sh",
+    "return-type": "json",
+    "interval": 10,
+    "signal": 8,
   },
   "custom/power": {
     "format": "<span size='13000' foreground='#f38ba8'>⏻ </span>",

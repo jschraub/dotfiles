@@ -66,6 +66,7 @@ button:hover {
 #wireplumber,
 #tray,
 #network,
+#custom-vpn,
 #mode,
 #scratchpad {
   margin-top: 2px;
@@ -99,6 +100,13 @@ button:hover {
 #network {
   color: @yellow;
   border-bottom: 2px solid @yellow;
+}
+
+/* Only rendered while a VPN is actually up -- vpn-status.sh emits empty text
+   otherwise, which makes waybar hide the module entirely. */
+#custom-vpn {
+  color: @teal;
+  border-bottom: 2px solid @teal;
 }
 
 #idle_inhibitor {

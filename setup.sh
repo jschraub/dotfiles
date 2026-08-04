@@ -44,8 +44,12 @@ LABEL[hyprland]="Hyprland compositor + full hypr environment (common + machine p
 PKGS[hyprland]="hyprland hyprpaper hypridle hyprlock hyprpicker grimblast-git swaync polkit-gnome gnome-keyring brightnessctl playerctl wireplumber xdg-desktop-portal-hyprland ttf-cascadia-code-nerd"
 HANDLER[hyprland]=handle_hyprland
 
-LABEL[waybar]="Waybar status bar (+ module click targets: bluetooth/audio/cast)"
-PKGS[waybar]="waybar blueman pavucontrol gnome-network-displays"
+LABEL[waybar]="Waybar status bar (+ module click targets: network/bluetooth/audio/cast)"
+# fuzzel/jq/libnotify are what network-menu.sh and vpn-status.sh need; they are
+# declared here rather than relied on transitively so that installing only the
+# waybar package on a fresh machine still yields a working network menu. fuzzel
+# rather than wofi because only fuzzel activates an entry on a single click.
+PKGS[waybar]="waybar blueman pavucontrol gnome-network-displays fuzzel jq libnotify"
 STOW[waybar]="waybar"
 
 LABEL[wofi]="Wofi application launcher"
