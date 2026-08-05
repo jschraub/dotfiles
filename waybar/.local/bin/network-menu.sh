@@ -48,7 +48,18 @@ readonly WAIT=15                   # seconds before a connect attempt counts as 
 readonly NOTIFY_ID=9047            # fixed id => "Connecting..." is REPLACED by the result
 readonly WAYBAR_SIGNAL=8           # matches "signal": 8 on the custom/vpn module
 readonly MAX_DEPTH=3               # cap on failure-driven menu reopens
-readonly SSID_COL=22               # display width of the ssid column
+
+# The dialog is sized to its contents rather than pinned to a guessed width.
+# Every glyph used here -- ascii, the block-element signal bars, the box-drawing
+# rule and the nf-md icons -- has an advance of exactly 1 cell in CaskaydiaCove
+# Nerd Font, so ${#line} is an exact column count and fuzzel's --width (which is
+# in characters) can be computed from it directly.
+readonly SSID_MIN=10               # floor for the ssid column, so short lists don't look ragged
+readonly SSID_MAX=22               # ceiling; longer ssids are truncated to this
+readonly WIDTH_MIN=30              # floor for the dialog, so the prompt has room
+readonly WIDTH_PAD=2               # slack for the cursor / scrollbar gutter
+
+SSID_COL=$SSID_MIN                 # actual ssid column width; computed in emit_networks
 
 # Anchoring (top-right, under the bar), sizing and colours all live here.
 readonly FUZZEL_CONF="$HOME/.config/fuzzel/network.ini"
@@ -73,7 +84,10 @@ readonly G_WEB=$'\U000f059f'       # web
 readonly G_REFRESH=$'\U000f0453'   # refresh
 readonly G_COG=$'\U000f0493'       # cog
 
-readonly SEP="$(printf "$(printf '\\u2500%.0s' {1..34})")"
+# A placeholder, not the divider itself: the rule has to span the finished menu,
+# whose width is not known until every row exists. main() swaps each of these for
+# a box-drawing line of the final width.
+readonly SEP=$'\x1e'
 readonly US=$'\x1f'                # field separator that cannot occur in an ssid
 
 # ------------------------------------------------------------------- primitives
@@ -85,8 +99,8 @@ notify() { # notify <urgency> <summary> [body]
 # nmcli -t escapes ':' as '\:' and '\' as '\\'. Undo that, in that order.
 unescape() { printf '%s' "$1" | sed -e 's/\\:/:/g' -e 's/\\\\/\\/g'; }
 
-menu() { # menu <prompt> ; reads entries on stdin, prints the chosen line
-    fuzzel --dmenu --config "$FUZZEL_CONF" --prompt "$1  "
+menu() { # menu <prompt> <width-in-chars> ; reads entries on stdin, prints the choice
+    fuzzel --dmenu --config "$FUZZEL_CONF" --width "$2" --prompt "$1  "
 }
 
 ask_password() { # ask_password <ssid>
@@ -94,8 +108,13 @@ ask_password() { # ask_password <ssid>
     # mode prints the typed string when it matches no entry, which is exactly
     # the behaviour a password prompt needs. --lines=0 collapses the (empty)
     # list so only the input row is drawn.
+    #
+    # Sized off the prompt (there are no rows to measure) plus room for a
+    # reasonable run of masking dots.
+    local width=$(( ${#1} + 28 ))
+    (( width < WIDTH_MIN )) && width=$WIDTH_MIN
     : | fuzzel --dmenu --config "$FUZZEL_CONF" --password --lines=0 \
-               --prompt "Password for $1  "
+               --width "$width" --prompt "Password for $1  "
 }
 
 # NetworkManager's cached verdict -- returns instantly. `connectivity check`
@@ -198,6 +217,15 @@ emit_networks() {
             secof[$ssid]=$security
         fi
     done <<<"$raw"
+
+    # Size the ssid column to the ssids actually in range, so a list of short
+    # names does not render a column of trailing blanks that the dialog then has
+    # to be wide enough to hold.
+    SSID_COL=$SSID_MIN
+    for ss in "${!best[@]}"; do
+        (( ${#ss} > SSID_COL )) && SSID_COL=${#ss}
+    done
+    (( SSID_COL > SSID_MAX )) && SSID_COL=$SSID_MAX
 
     if [[ -n $current ]]; then
         add_row "$(printf '%s  %-*s %s' \
@@ -370,8 +398,23 @@ main() {
     collect_profiles
     build_menu                 # populates MENU_LINES and ACT_* in THIS shell
 
+    # Width is the widest row; the separators are excluded because they are sized
+    # FROM the result rather than contributing to it.
+    local line width=$WIDTH_MIN
+    for line in ${MENU_LINES[@]+"${MENU_LINES[@]}"}; do
+        [[ $line == "$SEP" ]] && continue
+        (( ${#line} > width )) && width=${#line}
+    done
+
+    local rule; rule=$(printf "%*s" "$width" ''); rule=${rule// /$'─'}
+
+    local -a lines=()
+    for line in ${MENU_LINES[@]+"${MENU_LINES[@]}"}; do
+        if [[ $line == "$SEP" ]]; then lines+=("$rule"); else lines+=("$line"); fi
+    done
+
     local choice
-    choice=$(printf '%s\n' ${MENU_LINES[@]+"${MENU_LINES[@]}"} | menu "Network")
+    choice=$(printf '%s\n' ${lines[@]+"${lines[@]}"} | menu "Network" "$(( width + WIDTH_PAD ))")
     [[ -z $choice ]] && exit 0
 
     case "${ACT_KIND[$choice]:-}" in
