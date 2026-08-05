@@ -50,8 +50,8 @@ install_configs() {
     sudo cp "$GREETD_SRC/config.toml"    "$GREETD_DEST/config.toml"
     sudo cp "$GREETD_SRC/regreet.toml"   "$GREETD_DEST/regreet.toml"
     sudo cp "$GREETD_SRC/regreet.css"    "$GREETD_DEST/regreet.css"
-    sudo cp "$GREETD_SRC/hyprland.conf"  "$GREETD_DEST/hyprland.conf"
-    sudo chmod 644 "$GREETD_DEST"/*.toml "$GREETD_DEST"/*.css "$GREETD_DEST"/hyprland.conf
+    sudo cp "$GREETD_SRC/hyprland.lua"  "$GREETD_DEST/hyprland.lua"
+    sudo chmod 644 "$GREETD_DEST"/*.toml "$GREETD_DEST"/*.css "$GREETD_DEST"/hyprland.lua
     info "Config files installed to $GREETD_DEST"
 
     # PAM config for greeter session (required — without this PAM denies the greeter)
@@ -185,8 +185,8 @@ verify_config() {
         ok=false
     fi
 
-    if [[ ! -f "$GREETD_DEST/hyprland.conf" ]]; then
-        warn "Hyprland greeter config not found at $GREETD_DEST/hyprland.conf"
+    if [[ ! -f "$GREETD_DEST/hyprland.lua" ]]; then
+        warn "Hyprland greeter config not found at $GREETD_DEST/hyprland.lua"
         ok=false
     fi
 
