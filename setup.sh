@@ -36,7 +36,7 @@ DRY_RUN=0
 #   STOW[id]    space-separated stow package dirs to link
 #   HANDLER[id] optional function name overriding the generic install+stow
 
-ORDER=(hyprland waybar wofi wlogout ghostty fish nautilus gaming backgrounds avatars claude claude-skills greetd)
+ORDER=(hyprland waybar wofi wlogout ghostty fish nautilus gaming backgrounds avatars claude claude-skills matrix greetd)
 
 declare -A LABEL PKGS STOW HANDLER
 
@@ -86,6 +86,12 @@ STOW[claude]="claude"
 
 LABEL[claude-skills]="Claude Code skills plugin (delegates setup-claude-skills.sh)"
 HANDLER[claude-skills]=handle_claude_skills
+
+# Lives in its own repo (jschraub/fw16-ledmatrix) rather than here: it is a
+# standalone project, so this only fetches it and runs its own installer.
+# Override the checkout location with MATRIX_DIR (default ~/code/matrix).
+LABEL[matrix]="LED Matrix status daemon for the FW16 input modules (delegates installer)"
+HANDLER[matrix]=handle_matrix
 
 LABEL[greetd]="greetd + ReGreet login manager — system-level (delegates installer)"
 HANDLER[greetd]=handle_greetd
@@ -207,6 +213,7 @@ handle_fish() {
 
 handle_nautilus()      { delegate setup-nautilus.sh; }
 handle_claude_skills() { delegate setup-claude-skills.sh; }
+handle_matrix()        { delegate install-matrix.sh; }
 handle_greetd()        { delegate install-greetd-regreet.sh; }
 
 run_item() {
