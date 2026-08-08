@@ -4,33 +4,10 @@
 
 input=$(cat)
 
-# ── LED matrix snapshot ──────────────────────────────────────────────────────
-# The keyboard matrix daemon (~/code/matrix) needs the context percentage, which
-# Claude Code exposes here and nowhere else — no file on disk carries it and no
-# API reports it. This payload is already being produced several times a second,
-# so tapping it costs nothing.
-#
-# One file per session id, because several Claude Code sessions can be open at
-# once and a single shared file would show whichever rendered last. Written to a
-# temp name and renamed so a reader never catches a half-written file.
-#
-# Every failure is swallowed on purpose: a status line must never break, or even
-# flicker, because a side channel had a bad day.
-if [ -n "${XDG_RUNTIME_DIR:-}" ]; then
-    {
-        _mx_dir="$XDG_RUNTIME_DIR/matrixd/sessions"
-        _mx_id=$(echo "$input" | jq -r '.session_id // empty')
-        # Checked, not trusted: the id becomes a path component, and a value
-        # containing a slash would write outside this directory.
-        if [[ ! "$_mx_id" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ || "$_mx_id" == *..* ]]; then
-            _mx_id=""
-        fi
-        if [ -n "$_mx_id" ] && mkdir -p "$_mx_dir"; then
-            printf '%s' "$input" > "$_mx_dir/.$_mx_id.tmp" &&
-                mv -f "$_mx_dir/.$_mx_id.tmp" "$_mx_dir/$_mx_id.json"
-        fi
-    } >/dev/null 2>&1
-fi
+# The LED matrix daemon's snapshot tap is NOT here on purpose. It lives in
+# ~/code/matrix (integration/claude/matrix-statusline-tap.sh) and wraps this
+# script via settings.json, so there is exactly one copy of that logic and it
+# ships with the public repo rather than being stranded in these dotfiles.
 
 # ── Catppuccin Mocha palette (truecolor R;G;B) ───────────────────────────────
 cat_rosewater="245;224;220"
