@@ -4,6 +4,23 @@
     "type": "command",
     "command": "~/.claude/statusline.sh"
   },
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "[ -x ~/.claude/matrix-session-hook.sh ] && ~/.claude/matrix-session-hook.sh SessionStart || true" } ] }
+    ],
+    "SessionEnd": [
+      { "hooks": [ { "type": "command", "command": "[ -x ~/.claude/matrix-session-hook.sh ] && ~/.claude/matrix-session-hook.sh SessionEnd || true" } ] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [ { "type": "command", "command": "[ -x ~/.claude/matrix-session-hook.sh ] && ~/.claude/matrix-session-hook.sh UserPromptSubmit || true" } ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "[ -x ~/.claude/matrix-session-hook.sh ] && ~/.claude/matrix-session-hook.sh Stop || true" } ] }
+    ],
+    "StopFailure": [
+      { "hooks": [ { "type": "command", "command": "[ -x ~/.claude/matrix-session-hook.sh ] && ~/.claude/matrix-session-hook.sh StopFailure || true" } ] }
+    ]
+  },
   "enabledPlugins": {
     "cloudflare@claude-plugins-official": true,
     "claude-skills@claude-skills": true
