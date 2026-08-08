@@ -13,19 +13,38 @@
 set -eu
 
 TARGET=10
-FLAG="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/hypridle-dimmed"
+RUNTIME="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+FLAG="$RUNTIME/hypridle-dimmed"
+
+# The LED matrix daemon (~/code/matrix) follows screen brightness, and takes
+# over a panel with a gauge when *you* change it. udev cannot tell a thumb from
+# a timer, so this marks the writes below as automatic and the daemon suppresses
+# the takeover for them — without it a full-panel gauge lights up at the exact
+# moment you walk away from the machine.
+#
+# Touched before AND after each write: the kernel emits the uevent during the
+# write, but the daemon reads it asynchronously, so marking only one side leaves
+# a race in which an automatic change looks deliberate.
+#
+# Entirely best-effort. Dimming must work whether or not anything is listening.
+MARKER="$RUNTIME/matrixd/brightness-auto"
+mark() { mkdir -p "${MARKER%/*}" 2>/dev/null && : > "$MARKER" 2>/dev/null || true; }
 
 case "${1:-}" in
   dim)
     if [ "$(brightnessctl -m g)" -gt "$TARGET" ]; then
+      mark
       brightnessctl -q -s set "$TARGET"
+      mark
       : > "$FLAG"
     fi
     ;;
   restore)
     if [ -e "$FLAG" ]; then
+      mark
       # -q does not suppress output for -r in brightnessctl 0.5.1; keep stderr.
       brightnessctl -q -r >/dev/null
+      mark
       rm -f "$FLAG"
     fi
     ;;
