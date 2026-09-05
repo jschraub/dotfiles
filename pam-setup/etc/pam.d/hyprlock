@@ -1,0 +1,31 @@
+#%PAM-1.0
+#
+# hyprlock authenticates on the PASSWORD ONLY. Do not restore the upstream
+# `auth include login` here.
+#
+# Why: `include login` reaches /etc/pam.d/system-auth, which has
+# `auth sufficient pam_fprintd.so`. hyprlock cannot drive a fingerprint
+# conversation and a password prompt at once -- fprintd takes the typed
+# password, the stack falls through to pam_unix with nothing, and the unlock
+# fails. Three of those and pam_faillock locks the account for ten minutes.
+# Being unable to get past the lock screen after resuming is that, not a
+# forgotten password.
+#
+# The /usr/local/bin/check-lid.sh guard injected into system-auth does not help:
+# it skips fprintd only while the lid is SHUT, and you open the lid to wake the
+# machine -- so fprintd is always back in the stack by the time you type. That
+# guard is left in place because it still does the right thing for greetd, login
+# and sudo, where the conversation is a real terminal and fingerprint works.
+#
+# Fingerprint auth is unaffected everywhere else.
+
+auth      required                 pam_faillock.so  preauth
+auth      [success=1 default=bad]  pam_unix.so      try_first_pass nullok
+auth      [default=die]            pam_faillock.so  authfail
+auth      optional                 pam_permit.so
+auth      required                 pam_env.so
+auth      required                 pam_faillock.so  authsucc
+
+account   include                  system-auth
+password  include                  system-auth
+session   include                  system-auth

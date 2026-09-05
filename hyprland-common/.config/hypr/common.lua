@@ -40,11 +40,26 @@ local editor      = "code"
 ---- AUTOSTART ----
 -------------------
 
+-- Reconciles the internal panel against the real lid state and rebuilds waybar's
+-- per-output bars. See the script header for why the lid binds alone cannot be
+-- correct. Referenced from the binds, the monitor.added hook, and hypridle.
+local lidDisplay = "~/.config/hypr/scripts/lid-display.sh"
+
 hl.on("hyprland.start", function()
     hl.exec_cmd("/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1")
     hl.exec_cmd("gnome-keyring-daemon --start --components=secrets,pkcs11")
     hl.exec_cmd("swaync & hyprpaper & hypridle")
     hl.exec_cmd("sleep 1 && waybar")
+    -- After waybar, so the reload signal lands on a live process. Catches a
+    -- session that starts with the lid already shut, which fires no switch event.
+    hl.exec_cmd("sleep 2 && " .. lidDisplay)
+end)
+
+-- An output appearing is the one moment we know the monitor set changed: re-apply
+-- the lid rule (a resume can bring the panel back with the lid still shut) and
+-- rebuild the bars. The script is edge-triggered internally, so this cannot loop.
+hl.on("monitor.added", function()
+    hl.exec_cmd(lidDisplay)
 end)
 
 
@@ -182,7 +197,7 @@ local mainMod = "SUPER"
 
 hl.bind(mainMod .. " + return",    hl.dsp.exec_cmd(terminal))
 hl.bind(mainMod .. " + C",         hl.dsp.window.close())
-hl.bind(mainMod .. " + backspace", hl.dsp.exec_cmd('hyprctl keyword monitor ,preferred,auto,1 && sleep 0.5 && (command -v hyprshutdown >/dev/null 2>&1 && hyprshutdown || hyprctl dispatch exit)'))
+hl.bind(mainMod .. " + backspace", hl.dsp.exec_cmd(lidDisplay .. ' --all-on && sleep 0.5 && (command -v hyprshutdown >/dev/null 2>&1 && hyprshutdown || hyprctl dispatch \'hl.dsp.exit()\')'))
 hl.bind(mainMod .. " + delete",    hl.dsp.exec_cmd("~/.local/bin/wlogout-centered.sh"))
 hl.bind(mainMod .. " + E",         hl.dsp.exec_cmd(fileManager))
 hl.bind(mainMod .. " + V",         hl.dsp.window.float({ action = "toggle" }))
@@ -239,9 +254,11 @@ hl.bind("XF86AudioPause", hl.dsp.exec_cmd("playerctl play-pause"), { locked = tr
 hl.bind("XF86AudioPlay",  hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
 hl.bind("XF86AudioPrev",  hl.dsp.exec_cmd("playerctl previous"),   { locked = true })
 
--- Laptop lid: disable/enable the internal panel. No-op on machines without a lid.
-hl.bind("switch:on:Lid Switch",  hl.dsp.exec_cmd('hyprctl keyword monitor "eDP-2, disable"'),                 { locked = true })
-hl.bind("switch:off:Lid Switch", hl.dsp.exec_cmd('hyprctl keyword monitor "eDP-2, preferred, auto, 1"'),      { locked = true })
+-- Laptop lid. Both edges run the same reconcile against /proc/acpi/button/lid so
+-- the binds and the resume path can never disagree about which one is authoritative.
+-- No-op on machines without a lid.
+hl.bind("switch:on:Lid Switch",  hl.dsp.exec_cmd(lidDisplay), { locked = true })
+hl.bind("switch:off:Lid Switch", hl.dsp.exec_cmd(lidDisplay), { locked = true })
 
 
 --------------------------------
