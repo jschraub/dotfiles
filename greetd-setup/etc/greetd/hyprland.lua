@@ -4,61 +4,24 @@
 -- as the `greeter` user, which has no access to /home/jars/.config/hypr.
 
 hl.on("hyprland.start", function()
-    -- One command, in order: settle the displays, THEN run the greeter, THEN exit.
-    -- These used to be two independent hl.exec_cmd calls, which race -- ReGreet can
-    -- map its window before the panel is disabled.
+    -- NO monitor/lid handling here, deliberately. An earlier version disabled the
+    -- internal panel when the lid was shut so ReGreet could not land on a display
+    -- nobody can see. It made the machine unbootable: libaquamarine segfaults when
+    -- a monitor is disabled while the greeter is still coming up, Hyprland dies,
+    -- regreet loses its Wayland display mid-init and exits without creating a
+    -- session, and greetd restarts it -- a loop whose every iteration is a modeset,
+    -- which on the external monitor reads as signal dropping and returning. It
+    -- raced regreet's startup, so it only bit some of the time. The greeter's own
+    -- log ends at "Cancelling greetd session" with nothing after it.
     --
-    -- Never light a shut laptop panel: with the lid closed and an external monitor
-    -- attached, ReGreet's window lands on the internal display and the machine looks
-    -- hung at a black screen. Guarded on an external head so a lid-closed boot with
-    -- no external monitor still gets a greeter.
+    -- The problem that guard was written for turned out to be the hyprlock PAM
+    -- stack instead (see pam-setup/etc/pam.d/hyprlock), which is fixed. Do not
+    -- reintroduce monitor changes here without a way to test a real boot.
     --
-    -- Inlined rather than shared with the user's scripts/lid-display.sh because this
-    -- runs as `greeter`, which cannot read /home/jars -- see the header note. The
-    -- files it does read (/proc/acpi/button/lid, /sys/class/drm) are world-readable.
-    --
-    -- No `set -e`: a greeter that fails to reach `regreet` is a machine nobody can
-    -- log into. Every step here is best-effort.
-    hl.exec_cmd([[
-        set -u
-
-        # At boot the DRM connector shows up in /sys well before the compositor has
-        # a monitor for it. Disabling the panel in that window could leave zero
-        # outputs, so wait (bounded) for Hyprland itself to report a non-internal
-        # head before touching anything.
-        external_up() {
-            hyprctl monitors 2>/dev/null |
-                sed -n 's/^Monitor \([^ ]*\) .*/\1/p' |
-                grep -qv '^\(eDP\|LVDS\|DSI\)'
-        }
-
-        i=0
-        while [ "$i" -lt 30 ] && ! external_up; do
-            sleep 0.1
-            i=$((i + 1))
-        done
-
-        if external_up && grep -qs closed /proc/acpi/button/lid/*/state; then
-            for d in /sys/class/drm/card*-eDP-*/status; do
-                [ -r "$d" ] || continue
-                # Status, not just the glob: a hybrid-GPU laptop exposes an eDP
-                # connector per card and only one of them is the real panel.
-                [ "$(cat "$d")" = connected ] || continue
-                c=${d%/status}; c=${c##*/}; c=${c#*-}
-                hyprctl eval "hl.monitor({ output = \"$c\", disabled = true })" >/dev/null 2>&1
-            done
-        fi
-
-        regreet
-
-        # `hyprctl dispatch exit` is DEAD under the Lua parser: hyprctl evaluates its
-        # argument as Lua and the bare identifier `exit` is nil there, so the greeter
-        # never tore itself down when regreet finished. greetd then races the handoff
-        # ("Failed to start session scope: Resource deadlock avoided"), the greeter
-        # Hyprland aborts, and greetd gives up with "greeter exited without creating
-        # a session" -- on screen, a login prompt that goes nowhere.
-        hyprctl dispatch 'hl.dsp.exit()'
-    ]])
+    -- `hyprctl dispatch exit` is DEAD under the Lua parser: hyprctl evaluates its
+    -- argument as Lua and the bare identifier `exit` is nil there, so the greeter
+    -- never tore itself down when regreet finished.
+    hl.exec_cmd("regreet; hyprctl dispatch 'hl.dsp.exit()'")
 end)
 
 hl.config({

@@ -50,14 +50,21 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("gnome-keyring-daemon --start --components=secrets,pkcs11")
     hl.exec_cmd("swaync & hyprpaper & hypridle")
     hl.exec_cmd("sleep 1 && waybar")
-    -- After waybar, so the reload signal lands on a live process. Catches a
-    -- session that starts with the lid already shut, which fires no switch event.
-    hl.exec_cmd("sleep 2 && " .. lidDisplay)
+    -- Well after waybar and after the compositor has settled: catches a session
+    -- that started with the lid already shut, which fires no switch event. The
+    -- delay must clear the script's own startup guard (see lid-display.sh).
+    hl.exec_cmd("sleep 12 && " .. lidDisplay)
 end)
 
 -- An output appearing is the one moment we know the monitor set changed: re-apply
 -- the lid rule (a resume can bring the panel back with the lid still shut) and
 -- rebuild the bars. The script is edge-triggered internally, so this cannot loop.
+--
+-- These fire once per output during startup too. The script refuses to touch a
+-- monitor in the session's first seconds, which matters: libaquamarine segfaults
+-- when an output is disabled while the session is still coming up, and it takes
+-- Hyprland down with it. hl.timer() would express the delay more directly but it
+-- hangs config load, so the guard lives in the script.
 hl.on("monitor.added", function()
     hl.exec_cmd(lidDisplay)
 end)

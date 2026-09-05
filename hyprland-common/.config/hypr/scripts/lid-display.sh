@@ -96,10 +96,29 @@ if [ "${1:-}" = "--all-on" ]; then
     exit 0
 fi
 
+# libaquamarine SEGFAULTS when an output is disabled while the session is still
+# coming up, and it takes Hyprland with it. That is not theoretical: doing this in
+# the greeter made the machine unbootable -- Hyprland died, regreet lost its
+# Wayland display mid-init and exited without creating a session, greetd restarted
+# it, and every iteration of that loop was a modeset the external monitor showed as
+# signal dropping and returning.
+#
+# monitor.added fires once per output during startup, so without this guard a
+# lid-closed session's very first act is exactly that disable. Skip the monitor
+# half until the compositor has settled; the deferred call from hyprland.start
+# clears this window and does the real reconcile.
+compositor_settled() {
+    hpid=$(pgrep -x -o Hyprland 2>/dev/null || true)
+    [ -n "$hpid" ] || return 1
+    hage=$(ps -o etimes= -p "$hpid" 2>/dev/null | tr -dc 0-9)
+    [ -n "$hage" ] || return 1
+    [ "$hage" -ge 10 ]
+}
+
 panel=$(internal_panel)
 state=$(lid_state)
 
-if [ -n "$panel" ] && [ -n "$state" ]; then
+if [ -n "$panel" ] && [ -n "$state" ] && compositor_settled; then
     case "$state" in
         *closed*)
             # Never blank the only display. With no external head attached, a lid
@@ -117,24 +136,32 @@ fi
 # Runs on every reconcile rather than only when the panel changed: a plain
 # external-monitor hotplug moves no lid but still loses the bar.
 #
-# Serialized, and NOT with a plain `pkill -USR2`. Two SIGUSR2 landing inside one
-# reload cycle kills waybar outright -- observed with signals 45ms apart, where
-# the second "Reloading..." never completed and the process was gone. This script
-# runs from four places and monitor.added fires once per output, so back-to-back
-# invocations are the normal case, not the edge case. flock queues them and the
-# sleep holds the lock until the reload has settled.
-RUNTIME="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
-(
-    flock 9 || exit 0
-    if pgrep -x waybar >/dev/null 2>&1; then
-        pkill -USR2 -x waybar 2>/dev/null || true
-        sleep 2
-    else
-        # No waybar to signal: first run of the session, or it died. Either way
-        # an output event is a good moment to get the bar back. 9>&- so the new
-        # process does not inherit -- and hold -- the lock.
-        setsid waybar >/dev/null 2>&1 9>&- &
+# Two hard rules here, both learned by breaking them:
+#
+#  1. NEVER start waybar. An earlier version started one when it saw none, which
+#     raced Hyprland's own `sleep 1 && waybar` autostart and produced TWO bars at
+#     login, one of which then died. Autostart owns starting waybar; this owns
+#     signalling it.
+#
+#  2. Never signal a waybar that is still starting. It builds its per-output bars
+#     during the first seconds, and a reload landing in that window aborts the
+#     process (seen as waybar dumping core moments after login). A young waybar
+#     also needs no reload -- it is already enumerating the current outputs.
+#
+# Serialized for the same reason: two SIGUSR2 inside one reload cycle kills waybar
+# outright, observed 45ms apart. This script runs from several places and
+# monitor.added fires once per output, so back-to-back invocations are normal.
+pid=$(pgrep -x -o waybar 2>/dev/null || true)
+if [ -n "$pid" ]; then
+    age=$(ps -o etimes= -p "$pid" 2>/dev/null | tr -dc 0-9)
+    if [ -n "$age" ] && [ "$age" -ge 8 ]; then
+        RUNTIME="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+        (
+            flock 9 || exit 0
+            pkill -USR2 -x waybar 2>/dev/null || true
+            sleep 2
+        ) 9>"$RUNTIME/lid-display.waybar.lock"
     fi
-) 9>"$RUNTIME/lid-display.waybar.lock"
+fi
 
 exit 0
