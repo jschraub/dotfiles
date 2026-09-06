@@ -187,9 +187,38 @@ end
 -- since greetd holds VT1.
 local EXTERNAL_REFRESH = "120"
 
+-- Colour settings match hyprland-common/common.lua and the mini-mecha session
+-- exactly. This is deliberate and is NOT about the greeter needing HDR -- ReGreet
+-- is a GTK app and renders SDR content either way. It is about the MONITOR: an
+-- Odyssey Ark processes an HDR signal and an SDR signal through different picture
+-- paths, so a greeter left in sRGB is visibly the wrong colour next to the
+-- session even though the pixels it draws are identical.
+--
+-- sdrbrightness/sdrsaturation only apply while the output is in HDR mode -- they
+-- describe how SDR content is mapped into the HDR container. In sRGB mode they
+-- are inert, so there is no way to colour-correct an SDR greeter with them; the
+-- output has to be in HDR mode for them to mean anything.
+--
+-- Matching also means logging in no longer flips the link SDR->HDR, which was
+-- one of the blank-and-resync cycles on the way into the session.
+--
+-- The catch-all above stays cm = "srgb": a laptop-only boot has no HDR panel to
+-- drive, and this block only applies to external heads.
+local EXTERNAL_CM            = "hdr"
+local EXTERNAL_BITDEPTH      = 10
+local EXTERNAL_SDRBRIGHTNESS = 1.2
+local EXTERNAL_SDRSATURATION = 1.2
+
 for _, ext in ipairs(externals) do
     if ext.res then
-        hl.monitor({ output = ext.name, mode = ext.res .. "@" .. EXTERNAL_REFRESH })
+        hl.monitor({
+            output        = ext.name,
+            mode          = ext.res .. "@" .. EXTERNAL_REFRESH,
+            bitdepth      = EXTERNAL_BITDEPTH,
+            cm            = EXTERNAL_CM,
+            sdrbrightness = EXTERNAL_SDRBRIGHTNESS,
+            sdrsaturation = EXTERNAL_SDRSATURATION,
+        })
     end
 end
 
