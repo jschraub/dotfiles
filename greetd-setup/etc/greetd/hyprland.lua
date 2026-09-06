@@ -132,7 +132,7 @@ local function lid_closed()
     return state:find("closed") ~= nil
 end
 
-local internal_panels, external_count = {}, 0
+local internal_panels, externals = {}, {}
 
 local drm = io.popen("ls -1 /sys/class/drm 2>/dev/null")
 if drm then
@@ -149,7 +149,14 @@ if drm then
                     -- above has already filtered the phantom.
                     internal_panels[#internal_panels + 1] = name
                 else
-                    external_count = external_count + 1
+                    -- First line of `modes` is the connector's preferred
+                    -- RESOLUTION (no refresh rate). Used below to pin a
+                    -- conservative mode; nil is fine, it just means no pin.
+                    local modes = read_file("/sys/class/drm/" .. entry .. "/modes")
+                    externals[#externals + 1] = {
+                        name = name,
+                        res  = modes and modes:match("^(%d+x%d+)"),
+                    }
                 end
             end
         end
@@ -157,7 +164,26 @@ if drm then
     drm:close()
 end
 
-if external_count > 0 and lid_closed() then
+-- Pin every external head to its native resolution at 60Hz.
+--
+-- `mode = "preferred"` takes the connector's FIRST advertised mode, which on the
+-- Odyssey Ark is 3840x2160@164.99Hz. The greeter modeset that rate, logged
+-- "drm: Cannot commit when a page-flip is awaiting" twice, and put nothing on
+-- screen -- the login screen was there (regreet mapped, visible, focused, and
+-- the panel correctly disabled) but the monitor showed nothing. The session has
+-- always pinned 120Hz, which is why it never hit this.
+--
+-- 60Hz is the safe choice rather than matching the session's 120: it is the mode
+-- every display supports at its native resolution, and a login screen has no use
+-- for a high refresh rate. Falls back to the catch-all `preferred` when the
+-- resolution cannot be read.
+for _, ext in ipairs(externals) do
+    if ext.res then
+        hl.monitor({ output = ext.name, mode = ext.res .. "@60" })
+    end
+end
+
+if #externals > 0 and lid_closed() then
     for _, panel in ipairs(internal_panels) do
         hl.monitor({ output = panel, disabled = true })
     end
