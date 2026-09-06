@@ -21,6 +21,27 @@ hl.on("hyprland.start", function()
     -- `hyprctl dispatch exit` is DEAD under the Lua parser: hyprctl evaluates its
     -- argument as Lua and the bare identifier `exit` is nil there, so the greeter
     -- never tore itself down when regreet finished.
+    -- TEMPORARY DIAGNOSTIC -- remove once the lid-closed greeter is understood.
+    -- The greeter's own Hyprland log lives in /run/user/952 and is destroyed when
+    -- the greeter exits, so there is no way to see what it did with the monitors
+    -- after the fact. Copy the evidence somewhere that survives. Backgrounded and
+    -- entirely best-effort: it must never be able to stop regreet from running.
+    hl.exec_cmd([[
+        (
+            sleep 4
+            echo "=== monitors all ==="; hyprctl monitors all
+            echo "=== layers ===";       hyprctl layers
+            echo "=== clients ===";      hyprctl clients
+            echo "=== lid ===";          cat /proc/acpi/button/lid/*/state
+            echo "=== drm ==="
+            for f in /sys/class/drm/card*-*/status; do echo "$f $(cat "$f")"; done
+            sleep 2
+            echo "=== hyprland.log ==="
+            cat "$XDG_RUNTIME_DIR"/hypr/*/hyprland.log
+        ) > /tmp/greeter-diag.txt 2>&1
+        chmod 644 /tmp/greeter-diag.txt
+    ]])
+
     hl.exec_cmd("regreet; hyprctl dispatch 'hl.dsp.exit()'")
 end)
 
