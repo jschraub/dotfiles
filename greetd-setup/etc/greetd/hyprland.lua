@@ -164,22 +164,32 @@ if drm then
     drm:close()
 end
 
--- Pin every external head to its native resolution at 60Hz.
+-- Pin every external head to its native resolution at 120Hz.
 --
 -- `mode = "preferred"` takes the connector's FIRST advertised mode, which on the
 -- Odyssey Ark is 3840x2160@164.99Hz. The greeter modeset that rate, logged
 -- "drm: Cannot commit when a page-flip is awaiting" twice, and put nothing on
--- screen -- the login screen was there (regreet mapped, visible, focused, and
--- the panel correctly disabled) but the monitor showed nothing. The session has
--- always pinned 120Hz, which is why it never hit this.
+-- screen -- the login screen was genuinely there (regreet mapped, visible and
+-- focused, internal panel correctly disabled) but the monitor showed nothing.
+-- The session has always pinned 120Hz, which is why it never hit this.
 --
--- 60Hz is the safe choice rather than matching the session's 120: it is the mode
--- every display supports at its native resolution, and a login screen has no use
--- for a high refresh rate. Falls back to the catch-all `preferred` when the
--- resolution cannot be read.
+-- 120 matches the session, so logging in no longer changes the refresh rate --
+-- one less link retrain, and one less chance for the Ark to drop and re-acquire
+-- signal. It is a deliberate trade against 60, which is the rate every display
+-- supports at its native resolution: 120 is verified on THIS monitor and this
+-- machine never drives another one.
+--
+-- Safe against a display that cannot do 120: Hyprland honours a requested mode
+-- rather than falling back to `preferred`, verified by asking DP-5 for an
+-- unadvertised 144Hz and getting 3840x2160@144. So a bad pin can never silently
+-- land back on the 165Hz mode that started this. If a future monitor shows
+-- nothing at the greeter, drop this to @60 -- reachable from a TTY on Ctrl+Alt+F2
+-- since greetd holds VT1.
+local EXTERNAL_REFRESH = "120"
+
 for _, ext in ipairs(externals) do
     if ext.res then
-        hl.monitor({ output = ext.name, mode = ext.res .. "@60" })
+        hl.monitor({ output = ext.name, mode = ext.res .. "@" .. EXTERNAL_REFRESH })
     end
 end
 
