@@ -44,10 +44,25 @@ hl.env("__GLX_VENDOR_LIBRARY_NAME", "nvidia")
 -- Cursor theme
 hl.env("XCURSOR_SIZE", "24")
 
--- Use all available monitors
+-- Use all available monitors, pinned to SDR.
+--
+-- cm is set explicitly because render:cm_auto_hdr defaults to 1, so an unpinned
+-- output has its colour mode chosen by auto-detection -- on an HDR-capable panel
+-- the greeter could come up in HDR mode. That is worth avoiding on both counts:
+--
+--  * It buys nothing. ReGreet is a GTK app and renders SDR content regardless.
+--  * A monitor in HDR mode showing SDR content that is treated as sRGB looks
+--    blown out and oversaturated. The session compensates with sdrbrightness /
+--    sdrsaturation (see hyprland-common/common.lua); the greeter does not, so
+--    letting it drift into HDR is how you get a washed-out login screen.
+--
+-- The session still runs the external head at bitdepth 10 / cm hdr, so logging
+-- out retrains the link SDR<->HDR. That costs a blank-and-resync on the Ark and
+-- is the accepted trade for a greeter that always looks right.
 hl.monitor({
     output   = "",
     mode     = "preferred",
     position = "auto",
     scale    = 1,
+    cm       = "srgb",
 })
