@@ -66,3 +66,78 @@ hl.monitor({
     scale    = 1,
     cm       = "srgb",
 })
+
+
+-- Keep the greeter off a shut laptop panel.
+--
+-- Hyprland puts the first monitor's workspace up first, so with the lid closed
+-- ReGreet lands on the internal panel and the machine looks hung -- you have to
+-- open the lid to log in.
+--
+-- CRITICAL: this is decided at CONFIG LOAD and expressed as `disabled` in the
+-- initial monitor rule, so Hyprland never brings the panel up at all. Do NOT
+-- reimplement this as a runtime `hyprctl` disable from hyprland.start. That was
+-- tried and it made the machine unbootable: libaquamarine segfaults when a LIVE
+-- output is torn down (Aquamarine::SDRMConnector::disconnect inside
+-- ~CDRMBackend), which killed the compositor under regreet, so regreet exited
+-- without creating a session and greetd restarted it -- a loop whose every
+-- iteration was a modeset, seen on the external monitor as signal dropping and
+-- returning. Never enabling the output avoids that path entirely.
+--
+-- Gated on BOTH the lid being shut and an external head being present, so the
+-- greeter can never end up with no display you can actually look at:
+--   lid open           -> panel stays, greeter is visible on it
+--   no external        -> panel stays, laptop-only boots still work
+--   lid shut + external -> panel off, greeter goes to the external
+--
+-- Runs as `greeter`, which cannot read /home/jars, so this is standalone rather
+-- than sharing hyprland-common's scripts/lid-display.sh. Both files it reads are
+-- world-readable.
+
+local function read_file(path)
+    local f = io.open(path, "r")
+    if not f then return nil end
+    local contents = f:read("*a")
+    f:close()
+    return contents
+end
+
+local function lid_closed()
+    -- Lua has no globbing and the ACPI button name is not fixed (LID0 here).
+    local pipe = io.popen("cat /proc/acpi/button/lid/*/state 2>/dev/null")
+    if not pipe then return false end
+    local state = pipe:read("*a") or ""
+    pipe:close()
+    return state:find("closed") ~= nil
+end
+
+local internal_panels, external_count = {}, 0
+
+local drm = io.popen("ls -1 /sys/class/drm 2>/dev/null")
+if drm then
+    for entry in drm:lines() do
+        -- card2-eDP-2 -> eDP-2. Bare "card2" and renderD* do not match.
+        local name = entry:match("^card%d+%-(.+)$")
+        if name and not name:match("^Writeback") then
+            local status = read_file("/sys/class/drm/" .. entry .. "/status")
+            -- Anchored: "disconnected" must not match.
+            if status and status:find("^connected") then
+                if name:match("^eDP") or name:match("^LVDS") or name:match("^DSI") then
+                    -- A hybrid-GPU laptop exposes an eDP connector per card and
+                    -- only the connected one is the real panel; the status check
+                    -- above has already filtered the phantom.
+                    internal_panels[#internal_panels + 1] = name
+                else
+                    external_count = external_count + 1
+                end
+            end
+        end
+    end
+    drm:close()
+end
+
+if external_count > 0 and lid_closed() then
+    for _, panel in ipairs(internal_panels) do
+        hl.monitor({ output = panel, disabled = true })
+    end
+end
