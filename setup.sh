@@ -37,7 +37,7 @@ STOW_NO_FOLDING=0
 #   STOW[id]    space-separated stow package dirs to link
 #   HANDLER[id] optional function name overriding the generic install+stow
 
-ORDER=(hyprland waybar wofi wlogout ghostty fish nautilus gaming backgrounds avatars opencode opencode-skills cloudflare-skills matrix greetd)
+ORDER=(hyprland waybar wofi wlogout ghostty fish nautilus gaming backgrounds avatars opencode cloudflare-skills mattpocock-skills matrix greetd)
 
 declare -A LABEL PKGS STOW HANDLER
 
@@ -85,11 +85,11 @@ STOW[avatars]="avatars"
 LABEL[opencode]="OpenCode config (~/.config/opencode/opencode.jsonc + plugins)"
 STOW[opencode]="opencode"
 
-LABEL[opencode-skills]="Personal OpenCode skills (~/.config/opencode/skills)"
-HANDLER[opencode-skills]=handle_opencode_skills
-
 LABEL[cloudflare-skills]="Cloudflare OpenCode skills + remote MCP server"
 HANDLER[cloudflare-skills]=handle_cloudflare_skills
+
+LABEL[mattpocock-skills]="Matt Pocock's productivity + engineering skills for OpenCode"
+HANDLER[mattpocock-skills]=handle_mattpocock_skills
 
 # Lives in its own repo (jschraub/fw16-ledmatrix) rather than here: it is a
 # standalone project, so this only fetches it and runs its own installer.
@@ -219,8 +219,8 @@ handle_fish() {
 
 handle_nautilus()          { delegate setup-nautilus.sh; }
 handle_opencode()          { STOW_NO_FOLDING=1; handle_generic opencode; STOW_NO_FOLDING=0; }
-handle_opencode_skills()   { delegate setup-opencode-skills.sh; }
 handle_cloudflare_skills() { delegate setup-cloudflare-skills.sh; }
+handle_mattpocock_skills()  { delegate setup-mattpocock-skills.sh; }
 handle_matrix()            { delegate install-matrix.sh; }
 handle_greetd()            { delegate install-greetd-regreet.sh; }
 
