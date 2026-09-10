@@ -18,17 +18,15 @@ if status is-interactive
     # fzf key bindings
     fzf --fish | source
 
-    # Prompt: Tide (installed via fisher; themed in conf.d/tide_theme.fish to
-    # mirror the Claude Code statusline). On a new machine `fisher update` reads
+    # Prompt: Tide (installed via fisher; themed in conf.d/tide_theme.fish as a
+    # Catppuccin Mocha powerline). On a new machine `fisher update` reads
     # ../fish_plugins and installs it; if it doesn't pick Tide up, run:
     #   fisher install ilancosman/tide@v6
 
     # node version manager (adds a cd hook)
     fnm env --use-on-cd | source
 
-    # Secrets from GNOME Keyring — no plaintext on disk.
-    # Store with: secret-tool store --label="Claude Code OAuth" service claude-code key oauth_token
-    set -gx CLAUDE_CODE_OAUTH_TOKEN (secret-tool lookup service claude-code key oauth_token 2>/dev/null)
+    # Secrets from GNOME Keyring - no plaintext on disk.
     # Store with: secret-tool store --label="GitHub PAT" service github key pat
     set -gx GH_TOKEN (secret-tool lookup service github key pat 2>/dev/null)
 end

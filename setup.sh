@@ -28,6 +28,7 @@ error() { printf '\033[1;31m::\033[0m %s\n' "$*" >&2; exit 1; }
 ok()    { printf '\033[1;32m::\033[0m %s\n' "$*"; }
 
 DRY_RUN=0
+STOW_NO_FOLDING=0
 
 # ── Item registry ────────────────────────────────────────────────────────────
 # ORDER is the canonical list. For each id:
@@ -36,7 +37,7 @@ DRY_RUN=0
 #   STOW[id]    space-separated stow package dirs to link
 #   HANDLER[id] optional function name overriding the generic install+stow
 
-ORDER=(hyprland waybar wofi wlogout ghostty fish nautilus gaming backgrounds avatars claude claude-skills matrix greetd)
+ORDER=(hyprland waybar wofi wlogout ghostty fish nautilus gaming backgrounds avatars opencode opencode-skills cloudflare-skills matrix greetd)
 
 declare -A LABEL PKGS STOW HANDLER
 
@@ -81,11 +82,14 @@ STOW[backgrounds]="backgrounds"
 LABEL[avatars]="Avatar images (~/.config/avatars)"
 STOW[avatars]="avatars"
 
-LABEL[claude]="Claude Code config (~/.claude/settings.json + statusline.sh)"
-STOW[claude]="claude"
+LABEL[opencode]="OpenCode config (~/.config/opencode/opencode.jsonc + plugins)"
+STOW[opencode]="opencode"
 
-LABEL[claude-skills]="Claude Code skills plugin (delegates setup-claude-skills.sh)"
-HANDLER[claude-skills]=handle_claude_skills
+LABEL[opencode-skills]="Personal OpenCode skills (~/.config/opencode/skills)"
+HANDLER[opencode-skills]=handle_opencode_skills
+
+LABEL[cloudflare-skills]="Cloudflare OpenCode skills + remote MCP server"
+HANDLER[cloudflare-skills]=handle_cloudflare_skills
 
 # Lives in its own repo (jschraub/fw16-ledmatrix) rather than here: it is a
 # standalone project, so this only fetches it and runs its own installer.
@@ -148,7 +152,9 @@ safe_stow() {
         mkdir -p "$(dirname "$bak")"
         mv "$target" "$bak"
     done < <(find "$SCRIPT_DIR/$pkg" -type f)
-    if stow -R -t "$HOME" -d "$SCRIPT_DIR" "$pkg"; then
+    local flags=(-R)
+    [[ $STOW_NO_FOLDING -eq 1 ]] && flags+=(--no-folding)
+    if stow "${flags[@]}" -t "$HOME" -d "$SCRIPT_DIR" "$pkg"; then
         ok "stowed $pkg"
     else
         warn "stow reported a conflict for '$pkg' — resolve the file(s) above and re-run"
@@ -211,10 +217,12 @@ handle_fish() {
         || warn "fisher update hiccup — run 'fisher update' in fish manually (Tide may ask config questions once)"
 }
 
-handle_nautilus()      { delegate setup-nautilus.sh; }
-handle_claude_skills() { delegate setup-claude-skills.sh; }
-handle_matrix()        { delegate install-matrix.sh; }
-handle_greetd()        { delegate install-greetd-regreet.sh; }
+handle_nautilus()          { delegate setup-nautilus.sh; }
+handle_opencode()          { STOW_NO_FOLDING=1; handle_generic opencode; STOW_NO_FOLDING=0; }
+handle_opencode_skills()   { delegate setup-opencode-skills.sh; }
+handle_cloudflare_skills() { delegate setup-cloudflare-skills.sh; }
+handle_matrix()            { delegate install-matrix.sh; }
+handle_greetd()            { delegate install-greetd-regreet.sh; }
 
 run_item() {
     local id="$1"

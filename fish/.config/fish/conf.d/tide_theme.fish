@@ -1,4 +1,4 @@
-# Tide theme — mirrors the Claude Code statusline (Catppuccin Mocha powerline).
+# Tide theme - Catppuccin Mocha powerline.
 # Stow-managed and fully declarative: this file is the single source of truth,
 # re-applied on every shell — just edit and open a new shell (or `exec fish`).
 # Segments: user → clock → pwd → git → languages → docker (empty ones auto-hidden).
