@@ -13,13 +13,6 @@
     "clock",
     "custom/power",
   ],
-  "hyprland/workspaces": {
-    "format": "{id}",
-    "persistent-workspaces": {
-      "*": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-    },
-    "sort-by": "number",
-  },
   "clock": {
     "format": "<span foreground='#f5c2e7'> </span> {:%d %a %H:%M}",
     "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>",
