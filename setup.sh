@@ -50,7 +50,7 @@ LABEL[waybar]="Waybar status bar (+ module click targets: network/bluetooth/audi
 # declared here rather than relied on transitively so that installing only the
 # waybar package on a fresh machine still yields a working network menu. fuzzel
 # rather than wofi because only fuzzel activates an entry on a single click.
-PKGS[waybar]="waybar blueman pavucontrol gnome-network-displays fuzzel jq libnotify"
+PKGS[waybar]="waybar-git blueman pavucontrol gnome-network-displays fuzzel jq libnotify"
 STOW[waybar]="waybar"
 
 LABEL[wofi]="Wofi application launcher"
