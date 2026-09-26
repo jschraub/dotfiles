@@ -7,7 +7,17 @@
   },
   "hooks": {
     "SessionStart": [
-      { "hooks": [ { "type": "command", "command": "[ -x ~/.claude/matrix-session-hook.sh ] && ~/.claude/matrix-session-hook.sh SessionStart || true" } ] }
+      { "hooks": [ { "type": "command", "command": "[ -x ~/.claude/matrix-session-hook.sh ] && ~/.claude/matrix-session-hook.sh SessionStart || true" } ] },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash '/home/jars/.claude/hooks/herdr-agent-state.sh' session",
+            "timeout": 10
+          }
+        ]
+      }
     ],
     "SessionEnd": [
       { "hooks": [ { "type": "command", "command": "[ -x ~/.claude/matrix-session-hook.sh ] && ~/.claude/matrix-session-hook.sh SessionEnd || true" } ] }
