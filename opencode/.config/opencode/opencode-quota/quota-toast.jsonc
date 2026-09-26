@@ -10,7 +10,7 @@
   "enabledProviders": "auto",
   // Quota presentation and reset-period choices.
   "formatStyle": "allWindows",
-  "percentDisplayMode": "remaining",
+  "percentDisplayMode": "used",
   // TUI-only surfaces.
   "tuiSidebarPanel": {
     "enabled": true
