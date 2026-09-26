@@ -57,6 +57,7 @@ button:hover {
 #pulseaudio,
 #bluetooth,
 #clock,
+#custom-notification,
 #battery,
 #cpu,
 #memory,
@@ -85,6 +86,11 @@ button:hover {
 #clock.date {
   color: @mauve;
   border-bottom: 2px solid @mauve;
+}
+
+#custom-notification {
+  color: @peach;
+  border-bottom: 2px solid @peach;
 }
 
 #pulseaudio {
