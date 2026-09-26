@@ -34,5 +34,14 @@
       "type": "remote",
       "url": "https://mcp.cloudflare.com/mcp"
     }
+  },
+  // OpenCode Quota: tuiCommandDisplay chooses whether native TUI command output appears in the session transcript or a local popup dialog.
+  // OpenCode Quota: loads the server plugin for slash commands and quota checks.
+  "plugin": [
+    "@slkiser/opencode-quota@4"
+  ],
+  "provider": {
+    // Detected openai authentication; opencode-quota added this global provider declaration.
+    "openai": {}
   }
 }
