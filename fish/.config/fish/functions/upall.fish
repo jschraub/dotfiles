@@ -1,210 +1,173 @@
-function upall --description 'Update Arch packages via paru and Flatpaks, then refresh Cachy-Update'
+function upall --description 'Update repository packages, AUR packages, Flatpaks, and Cachy-Update'
     set -l failed
     set -g __upall_deferred
+    set -e __upall_last_log
 
-    echo "Starting system and AUR updates..."
-    __upall_sysupgrade
-    or set -a failed "system/AUR"
+    echo "Starting repository updates..."
+    __upall_repo_upgrade
+    or set -a failed repository
+
+    if test (count $failed) -eq 0
+        echo "---"
+        echo "Starting AUR updates..."
+        __upall_aur_upgrade
+        or set -a failed AUR
+    end
 
     echo "---"
-
     echo "Starting Flatpak updates..."
     flatpak update -y
     or set -a failed flatpak
 
     echo "---"
-
-    # paru/flatpak don't touch cachy-update's cached state, so its tray icon and
-    # notification keep advertising the pre-update list until the daily timer
-    # fires. Re-check here to clear it immediately.
+    # paru and Flatpak do not update Cachy-Update's cached state, so refresh it
+    # now rather than leaving its notification stale until the daily check.
     echo "Refreshing Cachy-Update status..."
     arch-update --check
 
-    echo "---"
     set -l deferred $__upall_deferred
     set -e __upall_deferred
+    set -e __upall_last_log
+
+    echo "---"
     if test (count $failed) -gt 0
         echo "Updates finished with failures: $failed" >&2
         return 1
     end
     if test (count $deferred) -gt 0
-        echo "All updates complete except $deferred -- that needs a conflict settled by hand." >&2
+        echo "All possible updates complete. Deferred AUR packages (retried next run): $deferred" >&2
         return 0
     end
     echo "All updates complete!"
 end
 
-function __upall_sysupgrade --description 'paru -Syu, retrying once past a conflict --noconfirm cannot answer'
-    # --noconfirm cannot answer a conflict prompt, so both pacman and paru abort
-    # the whole upgrade over one. Record the run on a pty -- script(1) keeps
-    # colours, progress bars and the sudo/fingerprint prompt working -- and if
-    # that is why it died, work out whether the conflict is safe to answer.
-    set -l log (mktemp -t upall-XXXXXX.log)
-    script -qec 'paru -Syu --noconfirm' $log
-    set -l ret $status
+function __upall_repo_upgrade --description 'Upgrade repository packages and retry known safe replacements'
+    __upall_run repo paru --repo -Syu --noconfirm --nouseask
+    and return 0
 
-    if test $ret -eq 0
-        rm -f $log
+    set -l log $__upall_last_log
+    if __upall_only_replacement_conflicts "$log"
+        echo "Repository replacements blocked the upgrade. Retrying..."
+        rm -f "$log"
+        __upall_run repo-retry paru --repo -Syu --noconfirm --ask=4
+        and return 0
+    end
+
+    __upall_report_failure repository "$log"
+    return 1
+end
+
+function __upall_aur_upgrade --description 'Upgrade AUR packages individually so one failure does not block the rest'
+    set -l pending (paru --aur -Qua --quiet)
+    or begin
+        echo "upall: could not determine pending AUR updates." >&2
+        return 1
+    end
+
+    for package in $pending
+        __upall_aur_package "$package"
+        or set -a __upall_deferred "$package"
+    end
+    return 0
+end
+
+function __upall_aur_package --description 'Upgrade one AUR package and defer it if it cannot be updated safely'
+    __upall_run "aur-$argv[1]" paru --aur -S --needed --noconfirm --nouseask --skipreview "$argv[1]"
+    and return 0
+
+    set -l log $__upall_last_log
+    if __upall_only_replacement_conflicts "$log"
+        echo "AUR package $argv[1] needs a declared replacement. Retrying..."
+        rm -f "$log"
+        __upall_run "aur-$argv[1]-retry" paru --aur -S --needed --noconfirm --useask --skipreview "$argv[1]"
+        and return 0
+        set log $__upall_last_log
+    end
+
+    __upall_report_failure "AUR package $argv[1] (deferred)" "$log"
+    return 1
+end
+
+function __upall_run --description 'Run a package command on a pty and retain its transcript only when it fails'
+    set -l label $argv[1]
+    set -e argv[1]
+    set -l state_home "$XDG_STATE_HOME"
+    test -n "$state_home"
+    or set state_home "$HOME/.local/state"
+    set -l log_dir "$state_home/upall"
+
+    mkdir -p "$log_dir"
+    or begin
+        echo "upall: cannot create log directory: $log_dir" >&2
+        return 1
+    end
+    set -l log (mktemp "$log_dir/$label-XXXXXX.log")
+    or begin
+        echo "upall: cannot create an update log in: $log_dir" >&2
+        return 1
+    end
+
+    script -qef "$log" -- $argv
+    set -l result $status
+    if test $result -eq 0
+        rm -f "$log"
         return 0
     end
 
-    # Strip the pty's escape sequences and carriage returns before matching.
-    set -l out (sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g; s/\r//g' $log)
-    rm -f $log
-
-    if string match -q '*unresolvable package conflicts*' -- $out
-        __upall_fix_pacman_conflict $out
-        return $status
-    end
-
-    if string match -q '*can not install conflicting packages with --noconfirm*' -- $out
-        __upall_fix_paru_conflict $out
-        return $status
-    end
-
-    return $ret
+    set -g __upall_last_log "$log"
+    return $result
 end
 
-function __upall_fix_pacman_conflict --description 'Retry when a repo package supersedes an installed one'
-    # pacman asks ":: X and Y are in conflict. Remove Y?" and --noconfirm says
-    # no, leaving "unresolvable package conflicts detected".
-    set -l removable
-    for line in $argv
-        set -l caps (string match -rg '^:: (\S+) and (\S+) are in conflict.*[Rr]emove ([^?]+)\?' -- $line)
-        test (count $caps) -eq 3
-        or continue
+function __upall_report_failure --description 'Point to the retained output for a failed updater command'
+    if test -n "$argv[2]"
+        echo "upall: $argv[1] failed; full output retained at $argv[2]" >&2
+    else
+        echo "upall: $argv[1] failed." >&2
+    end
+end
 
-        set -l victim $caps[3]
-        # The other side of the pair, minus its -pkgver-pkgrel suffix.
-        set -l incoming (string replace -r -- '-[^-]+-[^-]+$' '' $caps[1])
-        test $incoming != $victim
-        or set incoming (string replace -r -- '-[^-]+-[^-]+$' '' $caps[2])
+function __upall_only_replacement_conflicts --description 'Test whether every reported conflict is a declared package replacement'
+    test -r "$argv[1]"
+    or return 1
 
-        # Only auto-answer when the incoming package explicitly Replaces the
-        # installed one; a genuine either/or conflict still deserves a human.
-        if __upall_replaces $incoming $victim
-            set -a removable $victim
-        else
-            echo "upall: $incoming conflicts with $victim but does not replace it -- resolve by hand." >&2
-            return 1
+    set -l in_aur_block
+    set -l found
+    # Strip pty control sequences before parsing pacman and paru conflict lines.
+    for line in (sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g; s/\r//g' "$argv[1]")
+        set -l pacman_conflict (string match -rg '^:: (\S+) and (\S+) are in conflict.*[Rr]emove ([^?]+)\?' -- $line)
+        if test (count $pacman_conflict) -eq 3
+            set -l victim $pacman_conflict[3]
+            set -l incoming (string replace -r -- '-[^-]+-[^-]+$' '' $pacman_conflict[1])
+            test "$incoming" != "$victim"
+            or set incoming (string replace -r -- '-[^-]+-[^-]+$' '' $pacman_conflict[2])
+            __upall_replaces "$incoming" "$victim"
+            or return 1
+            set found 1
+            continue
         end
-    end
 
-    if test (count $removable) -eq 0
-        return 1
-    end
-
-    echo
-    echo "Conflict blocked the upgrade. These installed packages have been"
-    echo "superseded and will be removed by their replacements:"
-    for pkg in $removable
-        echo "  - $pkg"
-    end
-    echo "Retrying the upgrade..."
-    echo
-
-    # --ask=4 = answer "yes" to conflict removals for this transaction only.
-    paru -Syu --noconfirm --ask=4
-end
-
-function __upall_fix_paru_conflict --description 'Retry when an AUR target drags in a conflicting package'
-    # paru lists its conflicts up front and then refuses outright:
-    #   :: Conflicts found:
-    #       nodejs-lts-krypton: nodejs
-    #   error: can not install conflicting packages with --noconfirm
-    # A conflict that is really a replacement is safe to confirm (--useask).
-    # Anything else is a genuine either/or -- usually one AUR package's
-    # makedepend wanting to evict something already installed -- so drop that
-    # one target and let the rest of the upgrade through.
-    set -l in_block
-    set -l superseding
-    set -l culprits
-    for line in $argv
         if string match -qr '^:: (Inner c|C)onflicts found:' -- $line
-            set in_block 1
+            set in_aur_block 1
             continue
         end
-        set -q in_block[1]
+        set -q in_aur_block[1]
         or continue
 
-        set -l caps (string match -rg '^\s+(\S+):\s+(.+?)\s*$' -- $line)
-        if test (count $caps) -ne 2
-            set -e in_block[1]
+        set -l aur_conflict (string match -rg '^\s+(\S+):\s+(.+?)\s*$' -- $line)
+        if test (count $aur_conflict) -ne 2
+            set -e in_aur_block[1]
             continue
         end
 
-        set -l incoming $caps[1]
-        set -l genuine
-        for victim in (string split -n ', ' -- $caps[2])
+        for victim in (string split -n ', ' -- $aur_conflict[2])
             set victim (string replace -r -- '\s*\(.*\)$' '' $victim)
-            __upall_replaces $incoming $victim
-            or set genuine 1
+            __upall_replaces "$aur_conflict[1]" "$victim"
+            or return 1
         end
-
-        if set -q genuine[1]
-            set -a culprits $incoming
-        else
-            set -a superseding $incoming
-        end
+        set found 1
     end
 
-    if test (count $culprits) -eq 0 -a (count $superseding) -eq 0
-        return 1
-    end
-
-    # Every conflict is a replacement: let paru confirm them with pacman's ask.
-    if test (count $culprits) -eq 0
-        echo
-        echo "Conflict blocked the AUR upgrade; all of it is packages replacing"
-        echo "what they conflict with ($superseding). Retrying..."
-        echo
-        paru -Syu --noconfirm --useask
-        return $status
-    end
-
-    # Otherwise find which pending upgrade wants each culprit and skip it.
-    set -l pending (paru -Qua 2>/dev/null | string match -rg '^(\S+) ')
-    set -l ignore
-    for culprit in $culprits
-        set -l target (__upall_aur_target_for $culprit $pending)
-        if test -z "$target"
-            echo "upall: $culprit conflicts with an installed package and nothing" >&2
-            echo "       pending explains why -- resolve by hand." >&2
-            return 1
-        end
-        contains -- $target $ignore
-        or set -a ignore $target
-    end
-
-    echo
-    echo "An AUR upgrade wants a package that would evict something installed:"
-    for culprit in $culprits
-        echo "  - $culprit"
-    end
-    echo "Skipping the target(s) that pull it in and upgrading the rest: $ignore"
-    echo
-
-    set -a __upall_deferred $ignore
-    paru -Syu --noconfirm --ignore (string join , $ignore)
-end
-
-function __upall_aur_target_for --description 'Name the pending upgrade in $argv[2..] that depends on $argv[1]'
-    # Match on the conflicting package's own name and everything it provides,
-    # since the dependency is usually on a virtual name (nodejs-lts).
-    set -l names $argv[1]
-    for item in (__upall_field $argv[1] Provides)
-        set -a names (string replace -r -- '[<>=].*$' '' $item)
-    end
-
-    for target in $argv[2..-1]
-        for dep in (__upall_field $target 'Depends On' 'Make Deps' 'Check Deps')
-            if contains -- (string replace -r -- '[<>=].*$' '' $dep) $names
-                echo $target
-                return 0
-            end
-        end
-    end
-    return 1
+    set -q found[1]
 end
 
 function __upall_field --description 'Print the space-separated values of paru -Si fields $argv[2..] for $argv[1]'

@@ -82,8 +82,10 @@ STOW[backgrounds]="backgrounds"
 LABEL[avatars]="Avatar images (~/.config/avatars)"
 STOW[avatars]="avatars"
 
-LABEL[opencode]="OpenCode config (~/.config/opencode/opencode.jsonc + plugins)"
+LABEL[opencode]="OpenCode config + OpenCode Quota usage plugin"
+PKGS[opencode]="nodejs"
 STOW[opencode]="opencode"
+HANDLER[opencode]=handle_opencode
 
 LABEL[cloudflare-skills]="Cloudflare OpenCode skills + remote MCP server"
 HANDLER[cloudflare-skills]=handle_cloudflare_skills
@@ -218,7 +220,23 @@ handle_fish() {
 }
 
 handle_nautilus()          { delegate setup-nautilus.sh; }
-handle_opencode()          { STOW_NO_FOLDING=1; handle_generic opencode; STOW_NO_FOLDING=0; }
+handle_opencode() {
+    pkg_install ${PKGS[opencode]}
+    if [[ $DRY_RUN -eq 1 ]]; then
+        info "[dry-run] would configure OpenCode Quota with npx"
+    elif command -v npx >/dev/null 2>&1; then
+        # Configure the tracked files before stowing them into the live config directory.
+        info "configuring OpenCode Quota..."
+        OPENCODE_CONFIG_DIR="$SCRIPT_DIR/opencode/.config/opencode" \
+            npx --yes @slkiser/opencode-quota@4 init \
+            || warn "OpenCode Quota setup failed; re-run the OpenCode setup item to try again"
+    else
+        warn "npx missing — unable to configure OpenCode Quota"
+    fi
+    STOW_NO_FOLDING=1
+    safe_stow opencode
+    STOW_NO_FOLDING=0
+}
 handle_cloudflare_skills() { delegate setup-cloudflare-skills.sh; }
 handle_mattpocock_skills()  { delegate setup-mattpocock-skills.sh; }
 handle_matrix()            { delegate install-matrix.sh; }
