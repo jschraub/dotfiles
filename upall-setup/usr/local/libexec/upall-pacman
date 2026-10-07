@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# Root-only pacman gate used by the upall Fish function through paru. It accepts
+# only non-interactive upgrades, required repository dependencies, and packages
+# that paru has built in this user's cache.
+set -euo pipefail
+
+PACMAN=/usr/bin/pacman
+PARU_CACHE=/home/jars/.cache/paru/clone
+
+deny() {
+    printf 'upall-pacman: refused an unsupported pacman invocation\n' >&2
+    exit 64
+}
+
+validate_package_name() {
+    [[ "$1" =~ ^[A-Za-z0-9@._+:-]+$ ]] || deny
+}
+
+validate_package_path() {
+    [[ "$1" == *.pkg.tar.* ]] || deny
+
+    local resolved
+    resolved="$(realpath -e -- "$1")" || deny
+    [[ "$resolved" == "$PARU_CACHE"/* ]] || deny
+}
+
+authorize_sync() {
+    local refresh=0 upgrade=0 noconfirm=0 ask=0 asdeps=0 needed=0
+    local argument
+    local -a targets=()
+
+    while (($#)); do
+        argument="$1"
+        shift
+        case "$argument" in
+            --) ;;
+            -y) ((++refresh == 1)) || deny ;;
+            -u) ((++upgrade == 1)) || deny ;;
+            --noconfirm) ((++noconfirm == 1)) || deny ;;
+            --ask=4) ((++ask == 1)) || deny ;;
+            --asdeps) ((++asdeps == 1)) || deny ;;
+            --needed) ((++needed == 1)) || deny ;;
+            -*) deny ;;
+            *) validate_package_name "$argument"; targets+=("$argument") ;;
+        esac
+    done
+
+    ((noconfirm == 1)) || deny
+    if ((${#targets[@]} == 0)); then
+        ((refresh == 1 && upgrade == 1 && asdeps == 0 && needed == 0)) || deny
+    else
+        ((refresh == 0 && upgrade == 0 && asdeps == 1 && needed == 1)) || deny
+    fi
+}
+
+authorize_upgrade() {
+    local noconfirm=0 ask=0 needed=0 asdeps=0 argument
+    local -a packages=()
+
+    while (($#)); do
+        argument="$1"
+        shift
+        case "$argument" in
+            --) ;;
+            --noconfirm) ((++noconfirm == 1)) || deny ;;
+            --ask=4) ((++ask == 1)) || deny ;;
+            --needed) ((++needed == 1)) || deny ;;
+            --asdeps) ((++asdeps == 1)) || deny ;;
+            -*) deny ;;
+            *) validate_package_path "$argument"; packages+=("$argument") ;;
+        esac
+    done
+
+    ((noconfirm == 1 && ${#packages[@]} > 0)) || deny
+}
+
+# Paru also uses its configured pacman executable for unprivileged queries.
+# Preserve normal pacman behavior for those calls; only sudo reaches validation.
+if ((EUID != 0)); then
+    exec "$PACMAN" "$@"
+fi
+
+# This no-op lets the installer prove the sudoers rule works without changing
+# packages after it clears the normal sudo credential cache.
+if (($# == 1)) && [[ "$1" == --upall-authorization-check ]]; then
+    exit 0
+fi
+
+command=("$@")
+case "${command[0]:-}" in
+    --sync) authorize_sync "${command[@]:1}" ;;
+    --upgrade) authorize_upgrade "${command[@]:1}" ;;
+    *) deny ;;
+esac
+
+exec "$PACMAN" "${command[@]}"

@@ -3,6 +3,11 @@ function upall --description 'Update repository packages, AUR packages, Flatpaks
     set -g __upall_deferred
     set -e __upall_last_log
 
+    if not test -x /usr/local/libexec/upall-pacman
+        echo "upall: passwordless package updates are not installed; run 'bash ~/dotfiles/install-upall-nopasswd.sh' first." >&2
+        return 1
+    end
+
     echo "Starting repository updates..."
     __upall_repo_upgrade
     or set -a failed repository
@@ -42,14 +47,14 @@ function upall --description 'Update repository packages, AUR packages, Flatpaks
 end
 
 function __upall_repo_upgrade --description 'Upgrade repository packages and retry known safe replacements'
-    __upall_run repo paru --repo -Syu --noconfirm --nouseask
+    __upall_run repo paru --pacman /usr/local/libexec/upall-pacman --repo -Syu --noconfirm --nouseask
     and return 0
 
     set -l log $__upall_last_log
     if __upall_only_replacement_conflicts "$log"
         echo "Repository replacements blocked the upgrade. Retrying..."
         rm -f "$log"
-        __upall_run repo-retry paru --repo -Syu --noconfirm --ask=4
+        __upall_run repo-retry paru --pacman /usr/local/libexec/upall-pacman --repo -Syu --noconfirm --ask=4
         and return 0
     end
 
@@ -72,14 +77,14 @@ function __upall_aur_upgrade --description 'Upgrade AUR packages individually so
 end
 
 function __upall_aur_package --description 'Upgrade one AUR package and defer it if it cannot be updated safely'
-    __upall_run "aur-$argv[1]" paru --aur -S --needed --noconfirm --nouseask --skipreview "$argv[1]"
+    __upall_run "aur-$argv[1]" paru --pacman /usr/local/libexec/upall-pacman --aur -S --needed --noconfirm --nouseask --skipreview "$argv[1]"
     and return 0
 
     set -l log $__upall_last_log
     if __upall_only_replacement_conflicts "$log"
         echo "AUR package $argv[1] needs a declared replacement. Retrying..."
         rm -f "$log"
-        __upall_run "aur-$argv[1]-retry" paru --aur -S --needed --noconfirm --useask --skipreview "$argv[1]"
+        __upall_run "aur-$argv[1]-retry" paru --pacman /usr/local/libexec/upall-pacman --aur -S --needed --noconfirm --useask --skipreview "$argv[1]"
         and return 0
         set log $__upall_last_log
     end
