@@ -10,7 +10,7 @@
 #
 # Usage:
 #   ./setup.sh                 # interactive menu
-#   ./setup.sh all             # every item, no prompt
+#   ./setup.sh all             # all default items (optional hardware excluded)
 #   ./setup.sh hyprland fish   # named items, no prompt
 #   ./setup.sh --list          # print items and exit
 #   ./setup.sh --dry-run ...   # show the plan without changing anything
@@ -40,7 +40,7 @@ STOW_NO_FOLDING=0
 
 ORDER=(hyprland waybar wofi wlogout ghostty fish nautilus gaming backgrounds avatars opencode cloudflare-skills mattpocock-skills matrix greetd tty)
 
-declare -A LABEL PKGS STOW HANDLER
+declare -A LABEL PKGS STOW HANDLER OPTIONAL
 
 LABEL[hyprland]="Hyprland compositor + full hypr environment (common + machine profile)"
 PKGS[hyprland]="hyprland hyprpaper hypridle hyprlock hyprpicker grimblast-git swaync polkit-gnome gnome-keyring brightnessctl playerctl wireplumber xdg-desktop-portal-hyprland ttf-cascadia-code-nerd"
@@ -51,8 +51,10 @@ LABEL[waybar]="Waybar status bar (+ module click targets: network/bluetooth/audi
 # declared here rather than relied on transitively so that installing only the
 # waybar package on a fresh machine still yields a working network menu. fuzzel
 # rather than wofi because only fuzzel activates an entry on a single click.
-PKGS[waybar]="waybar-git blueman pavucontrol gnome-network-displays fuzzel jq libnotify python-gobject gtk3 gtk-layer-shell wireplumber"
+# 0.16.0 is the first release with Hyprland Lua workspace dispatch support.
+PKGS[waybar]="waybar>=0.16.0 blueman pavucontrol gnome-network-displays fuzzel jq libnotify python-gobject gtk3 gtk-layer-shell wireplumber"
 STOW[waybar]="waybar"
+HANDLER[waybar]=handle_waybar
 
 LABEL[wofi]="Wofi application launcher"
 PKGS[wofi]="wofi"
@@ -97,8 +99,9 @@ HANDLER[mattpocock-skills]=handle_mattpocock_skills
 # Lives in its own repo (jschraub/fw16-ledmatrix) rather than here: it is a
 # standalone project, so this only fetches it and runs its own installer.
 # Override the checkout location with MATRIX_DIR (default ~/code/matrix).
-LABEL[matrix]="LED Matrix status daemon for the FW16 input modules (delegates installer)"
+LABEL[matrix]="Optional LED Matrix hardware (explicit opt-in; excluded from all)"
 HANDLER[matrix]=handle_matrix
+OPTIONAL[matrix]=1
 
 LABEL[greetd]="greetd + ReGreet login manager — system-level (delegates installer)"
 HANDLER[greetd]=handle_greetd
@@ -224,7 +227,23 @@ handle_fish() {
 }
 
 handle_nautilus()          { delegate setup-nautilus.sh; }
+retire_legacy_matrix_link() {
+    local target="$HOME/.config/opencode/plugin/matrix.ts"
+    local legacy="$SCRIPT_DIR/opencode/.config/opencode/plugin/matrix.ts"
+    if [[ -L "$target" && "$(readlink -m "$target")" == "$legacy" ]]; then
+        if [[ $DRY_RUN -eq 1 ]]; then
+            info "[dry-run] would retire the managed OpenCode V1 Matrix link"
+        else
+            # Only this repo's exact old link is ours to remove. Keep foreign
+            # plugins and real files untouched, regardless of their filename.
+            rm -- "$target"
+            info "Retired managed OpenCode V1 Matrix link (source archived in matrix-setup)"
+        fi
+    fi
+}
+
 handle_opencode() {
+    retire_legacy_matrix_link
     pkg_install ${PKGS[opencode]}
     STOW_NO_FOLDING=1
     safe_stow opencode
@@ -233,6 +252,7 @@ handle_opencode() {
 handle_cloudflare_skills() { delegate setup-cloudflare-skills.sh; }
 handle_mattpocock_skills()  { delegate setup-mattpocock-skills.sh; }
 handle_matrix()            { delegate install-matrix.sh; }
+handle_waybar()            { delegate setup-waybar.sh; }
 handle_greetd()            { delegate install-greetd-regreet.sh; }
 handle_tty()               { delegate setup-tty.sh; }
 
@@ -247,6 +267,13 @@ run_item() {
 }
 
 # ── Menu / selection ─────────────────────────────────────────────────────────
+default_items() {
+    local id
+    for id in "${ORDER[@]}"; do
+        [[ "${OPTIONAL[$id]:-0}" == 1 ]] || printf '%s\n' "$id"
+    done
+}
+
 print_list() {
     local i=1 id
     for id in "${ORDER[@]}"; do
@@ -286,7 +313,7 @@ main() {
     local selected=() id tok
     if [[ ${#args[@]} -gt 0 ]]; then
         if [[ "${args[0]}" == "all" ]]; then
-            selected=("${ORDER[@]}")
+            mapfile -t selected < <(default_items)
         else
             for tok in "${args[@]}"; do
                 id="$(resolve_token "$tok")"
@@ -299,7 +326,7 @@ main() {
         echo
         read -rp "Select items (numbers/names, space-separated, or 'all'): " line
         if [[ "$line" == "all" ]]; then
-            selected=("${ORDER[@]}")
+            mapfile -t selected < <(default_items)
         else
             for tok in $line; do
                 id="$(resolve_token "$tok")"

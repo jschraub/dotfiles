@@ -57,7 +57,9 @@ install_configs() {
 
     # Preserve local settings, and install the launch command LAST so it cannot
     # point at a Lua file that has not yet been copied. Back up only changed files.
-    sudo mkdir -p "$GREETD_DEST"
+    # Secure the directory BEFORE touching files: a greeter-writable directory
+    # permits replacement of root-owned config.toml regardless of its file mode.
+    sudo install -d -o root -g root -m 755 "$GREETD_DEST"
     local file mode stamp
     stamp="$(date +%Y%m%d%H%M%S%N)"
     for file in hyprland.lua regreet.toml regreet.css config.toml; do
@@ -67,7 +69,7 @@ install_configs() {
         fi
         mode=644
         [[ "$file" != config.toml ]] || mode=640
-        sudo install -m "$mode" "$GREETD_SRC/$file" "$GREETD_DEST/$file"
+        sudo install -o root -g root -m "$mode" "$GREETD_SRC/$file" "$GREETD_DEST/$file"
     done
     if [[ -f "$GREETD_DEST/hyprland.conf" ]]; then
         warn "Legacy hyprland.conf is unused; leaving it in place for recovery"
@@ -118,11 +120,9 @@ setup_greeter_user() {
         sudo useradd -r -s /usr/bin/nologin -d / greeter
     fi
 
-    # Ensure greetd config directory is owned correctly
-    sudo chown -R greeter:greeter "$GREETD_DEST"
-    # config.toml needs to be readable by greetd (run as root)
-    sudo chown root:greeter "$GREETD_DEST/config.toml"
-    sudo chmod 640 "$GREETD_DEST/config.toml"
+    # Static configuration stays root-owned. Only state and logs are writable
+    # by greeter; never recursively chown /etc/greetd to the service user.
+    sudo install -d -o root -g root -m 755 "$GREETD_DEST"
 
     # ReGreet state/log directories (systemd-tmpfiles usually handles this)
     sudo mkdir -p /var/lib/regreet /var/log/regreet
@@ -189,6 +189,9 @@ enable_greetd() {
 verify_config() {
     info "Verifying greetd + ReGreet configuration..."
     local ok=true
+
+    [[ "$(stat -c '%u:%g:%a' "$GREETD_DEST")" == '0:0:755' ]] \
+        || error "greetd configuration directory must be root:root 755"
 
     if [[ ! -f "$GREETD_DEST/config.toml" ]]; then
         warn "greetd config not found at $GREETD_DEST/config.toml"

@@ -92,6 +92,15 @@ class SetupAuditTest(unittest.TestCase):
         self.assertIn('fish', entries)
         self.assertEqual(entries['fish'][1], ['fish'])
         self.assertIn('tty', entries)
+        self.assertTrue(entries['matrix'][2])
+
+    def test_optional_hardware_is_skipped_by_default_but_can_be_requested(self):
+        for argv, included in [(['check_setup.py'], False), (['check_setup.py', 'matrix'], True)]:
+            with self.subTest(argv=argv), patch('sys.argv', argv), \
+                    patch.object(module.Audit, 'item') as item, patch.object(module.Audit, 'packages'):
+                module.main()
+                selected = [call.args[0] for call in item.call_args_list]
+                self.assertEqual('matrix' in selected, included)
 
     def test_package_queries_are_read_only(self):
         with patch.object(module.shutil, 'which', return_value='/usr/bin/pacman'), \

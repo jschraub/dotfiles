@@ -27,8 +27,25 @@ class GreetdSetupTest(unittest.TestCase):
         # sudo only executes commands against fixture paths. Hyprland's parser
         # failure is simulated to test installer control flow, not Lua syntax.
         for name, text in {
-            'sudo': '#!/bin/sh\nexec "$@"\n',
+            'sudo': '''#!/usr/bin/env python3
+import os, subprocess, sys
+args = sys.argv[1:]
+with open(os.environ['FIXTURE'] + '/sudo.log', 'a') as log:
+    log.write(' '.join(args) + '\\n')
+if args[0] == 'install':
+    filtered = [args[0]]
+    index = 1
+    while index < len(args):
+        if args[index] in ['-o', '-g']:
+            index += 2
+        else:
+            filtered.append(args[index])
+            index += 1
+    args = filtered
+sys.exit(subprocess.run(args).returncode)
+''',
             'Hyprland': '#!/bin/sh\n! grep -q INVALID "$3"\n',
+            'stat': '#!/bin/sh\nif [ "$2" = "%u:%g:%a" ]; then echo 0:0:755; else exec /usr/bin/stat "$@"; fi\n',
         }.items():
             file = self.bin / name
             file.write_text(text)
@@ -63,6 +80,10 @@ class GreetdSetupTest(unittest.TestCase):
         self.assertEqual(len(backups), 1)
         self.assertEqual(backups[0].read_text(), old)
         self.assertTrue((self.dest / 'hyprland.conf').exists())
+        calls = (self.root / 'sudo.log').read_text()
+        self.assertIn('install -d -o root -g root -m 755', calls)
+        self.assertIn('install -o root -g root -m 640', calls)
+        self.assertNotIn('chown -R greeter', calls)
 
     def test_invalid_source_does_not_overwrite_installed_config(self):
         for filename in ['config.toml', 'hyprland.lua']:

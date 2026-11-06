@@ -16,12 +16,21 @@ An externally amplified volume can still be displayed without changing it.
 
 Dependencies are declared in `setup.sh` under `waybar`: `python-gobject`, `gtk3`,
 `gtk-layer-shell`, `wireplumber`, and `pavucontrol`. Existing bar dependencies are
-unchanged. Install/restow with `./setup.sh waybar`. If dependencies are already
+unchanged. Install/restow with `./setup.sh waybar` or `./setup-waybar.sh`. The
+installer prefers stable Waybar >=0.16.0 (the Lua-workspace-click release), replacing
+waybar-git in one pacman transaction when available. Approve the package conflict
+prompt; it never removes the working Git build first. If your sync database still
+lists 0.15.x, the Git build is retained/used instead. After a normal full system
+update (`sudo pacman -Syu`), rerun the installer to switch once 0.16.0 arrives.
+Use `./setup-waybar.sh --stable` to refuse a Git fallback. If dependencies are already
 present, restowing alone is enough:
 
 ```sh
 stow --restow --target "$HOME" --dir "$HOME/dotfiles" waybar
 ```
+
+Upstream reference: [Waybar 0.16.0 release](https://github.com/Alexays/Waybar/releases/tag/0.16.0),
+including [Lua workspace dispatch support](https://github.com/Alexays/Waybar/pull/5013).
 
 Reload Waybar at a convenient time to pick up new click actions:
 

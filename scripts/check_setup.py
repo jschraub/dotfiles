@@ -1,7 +1,6 @@
 """Read-only comparison of installed configuration with this working checkout."""
 import argparse
 from collections import Counter
-import grp
 import os
 from pathlib import Path
 import pwd
@@ -19,12 +18,12 @@ def registry(root):
     # setup.sh is safe to source; never call main, handlers, or installers.
     result = subprocess.run([
         'bash', '-c', 'source "$1"; for id in "${ORDER[@]}"; do '
-        'printf "%s\\0%s\\0%s\\0" "$id" "${PKGS[$id]:-}" "${STOW[$id]:-}"; done',
+        'printf "%s\\0%s\\0%s\\0%s\\0" "$id" "${PKGS[$id]:-}" "${STOW[$id]:-}" "${OPTIONAL[$id]:-0}"; done',
         'audit', str(root / 'setup.sh'),
     ], check=True, capture_output=True, text=True)
     fields = result.stdout.split('\0')[:-1]
-    return {fields[i]: (fields[i + 1].split(), fields[i + 2].split())
-            for i in range(0, len(fields), 3)}
+    return {fields[i]: (fields[i + 1].split(), fields[i + 2].split(), fields[i + 3] == '1')
+            for i in range(0, len(fields), 4)}
 
 
 class Audit:
@@ -83,6 +82,19 @@ class Audit:
             self.report('UNKNOWN', 'packages', 'pacman unavailable')
             return
         for package in packages:
+            if package == 'waybar>=0.16.0':
+                git = subprocess.run(['pacman', '-Q', 'waybar-git'], capture_output=True)
+                if git.returncode == 0:
+                    self.report('OK', 'Waybar Git fallback', 'rolling build; stable replacement uses setup-waybar.sh')
+                    continue
+                result = subprocess.run(['pacman', '-T', package], capture_output=True, text=True)
+                if result.returncode == 0:
+                    self.report('OK', f'package {package}')
+                elif result.returncode == 127 and package in result.stdout.splitlines():
+                    self.report('DRIFT', 'Waybar Lua support', 'requires stable >=0.16.0 or waybar-git; run ./setup-waybar.sh')
+                else:
+                    self.report('UNKNOWN', 'Waybar Lua support', 'dependency query failed')
+                continue
             result = subprocess.run(['pacman', '-Q', package], capture_output=True, text=True,
                                     env=dict(os.environ, LC_ALL='C'))
             if result.returncode == 0:
@@ -102,6 +114,18 @@ class Audit:
         else:
             self.report('OK' if result.stdout.strip() == expected else 'DRIFT', label,
                         '' if result.stdout.strip() == expected else 'value differs from installer')
+
+    def directory(self, target, mode, uid, gid):
+        try:
+            metadata = target.lstat()
+            matches = (stat.S_ISDIR(metadata.st_mode) and metadata.st_mode & 0o7777 == mode
+                       and metadata.st_uid == uid and metadata.st_gid == gid)
+            self.report('OK' if matches else 'DRIFT', str(target),
+                        '' if matches else f'expected directory owner {uid}:{gid}, permissions {mode:o}')
+        except FileNotFoundError:
+            self.report('DRIFT', str(target), 'missing directory')
+        except OSError:
+            self.report('UNKNOWN', str(target), 'cannot inspect directory')
 
     def tty(self):
         self.packages(['terminus-font', 'fish'])
@@ -128,16 +152,17 @@ class Audit:
         self.packages(['greetd', 'greetd-regreet', 'hyprland', 'dbus', 'ttf-cascadia-code-nerd'])
         try:
             greeter = pwd.getpwnam('greeter')
-            greeter_group = grp.getgrnam('greeter').gr_gid
         except KeyError:
-            self.report('DRIFT', 'greeter user/group', 'missing')
+            self.report('DRIFT', 'greeter user', 'missing')
             greeter = None
-            greeter_group = None
+        self.directory(Path('/etc/greetd'), 0o755, 0, 0)
+        if greeter:
+            for path in ['/var/lib/regreet', '/var/log/regreet']:
+                self.directory(Path(path), 0o750, greeter.pw_uid, greeter.pw_gid)
         for name in ['config.toml', 'hyprland.lua', 'regreet.toml', 'regreet.css']:
             self.file(self.root / 'greetd-setup/etc/greetd' / name, Path('/etc/greetd') / name,
                       mode=0o640 if name == 'config.toml' else 0o644,
-                      uid=0 if name == 'config.toml' else greeter.pw_uid if greeter else None,
-                      gid=greeter_group)
+                      uid=0, gid=0)
         self.file(self.root / 'greetd-setup/etc/pam.d/greetd-greeter', Path('/etc/pam.d/greetd-greeter'))
         self.file(self.root / 'backgrounds/.config/backgrounds/tolkien/balrog.jpg',
                   Path('/usr/share/backgrounds/greeter-tolkien.jpg'))
@@ -206,7 +231,7 @@ class Audit:
 
     def item(self, item, entries):
         print(f'\n== {item} ==')
-        packages, stow = entries.get(item, ([], []))
+        packages, stow, _ = entries.get(item, ([], [], False))
         self.packages(packages)
         for package in stow:
             self.stow(package)
@@ -241,9 +266,10 @@ def main():
     if args.list:
         print(' '.join(choices))
         return 0
-    items = args.items or choices
+    defaults = [item for item in choices if not entries.get(item, ([], [], False))[2]]
+    items = args.items or defaults
     if items == ['all']:
-        items = choices
+        items = defaults
     if any(item not in choices for item in items):
         parser.error('unknown item; use --list')
     machine = args.machine
@@ -254,6 +280,8 @@ def main():
     audit = Audit(machine=machine, verbose=args.verbose)
     print(f'Baseline: current working checkout at {ROOT}')
     print('Only selected expectations are checked; no extra files are deleted or reported as drift.')
+    if not args.items or args.items == ['all']:
+        print('[SKIP] Matrix hardware is optional; audit explicitly with ./check-setup.sh matrix')
     audit.packages(['stow'])
     for item in dict.fromkeys(items):
         audit.item(item, entries)

@@ -217,7 +217,7 @@ hl.bind(mainMod .. " + P",         hl.dsp.window.pseudo())
 hl.bind(mainMod .. " + J",         hl.dsp.layout("togglesplit"))
 hl.bind(mainMod .. " + B",         hl.dsp.exec_cmd(browser))
 hl.bind(mainMod .. " + W",         hl.dsp.exec_cmd(editor))
-hl.bind(mainMod .. " + L",         hl.dsp.exec_cmd("hyprlock"))
+hl.bind(mainMod .. " + L",         hl.dsp.exec_cmd("~/.config/hypr/scripts/lock.sh"))
 hl.bind(mainMod .. " + G",         hl.dsp.exec_cmd("steam"))
 hl.bind(mainMod .. " + H",         hl.dsp.exec_cmd("lutris"))
 

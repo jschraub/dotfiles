@@ -1,3 +1,4 @@
+// Archived V1 integration. Not part of the default OpenCode Stow package.
 import { mkdir, rename, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { Plugin } from "@opencode-ai/plugin"
