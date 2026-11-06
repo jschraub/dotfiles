@@ -15,8 +15,9 @@
     "custom/power",
   ],
   "clock": {
-    "format": "<span foreground='#f5c2e7'> </span> {:%d %a %H:%M}",
-    "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>",
+    "format": "{:%d %a %H:%M}",
+    "tooltip": false,
+    "on-click": "~/.local/bin/waybar-popup.py calendar",
   },
   "battery": {
     "states": {
@@ -62,7 +63,8 @@
     "format-icons": {
       "default": ["", "", " "],
     },
-    "on-click": "pavucontrol",
+    "on-click": "~/.local/bin/waybar-popup.py audio",
+    "on-click-right": "pavucontrol",
   },
   "custom/keep-awake": {
     "format": "<span size='13000'>{}</span>",
