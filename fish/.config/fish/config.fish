@@ -30,3 +30,6 @@ if status is-interactive
     # Store with: secret-tool store --label="GitHub PAT" service github key pat
     set -gx GH_TOKEN (secret-tool lookup service github key pat 2>/dev/null)
 end
+
+# After CachyOS aliases and Tide: console-only overrides, never GUI terminals.
+test -f ~/.config/fish/tty.fish; and source ~/.config/fish/tty.fish

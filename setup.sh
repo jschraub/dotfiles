@@ -37,7 +37,7 @@ STOW_NO_FOLDING=0
 #   STOW[id]    space-separated stow package dirs to link
 #   HANDLER[id] optional function name overriding the generic install+stow
 
-ORDER=(hyprland waybar wofi wlogout ghostty fish nautilus gaming backgrounds avatars opencode cloudflare-skills mattpocock-skills matrix greetd)
+ORDER=(hyprland waybar wofi wlogout ghostty fish nautilus gaming backgrounds avatars opencode cloudflare-skills mattpocock-skills matrix greetd tty)
 
 declare -A LABEL PKGS STOW HANDLER
 
@@ -101,6 +101,9 @@ HANDLER[matrix]=handle_matrix
 
 LABEL[greetd]="greetd + ReGreet login manager — system-level (delegates installer)"
 HANDLER[greetd]=handle_greetd
+
+LABEL[tty]="Linux console: Terminus 16px font + Fish ASCII prompt and palette"
+HANDLER[tty]=handle_tty
 
 # ── Package + stow primitives ────────────────────────────────────────────────
 AUR_HELPER=""
@@ -230,6 +233,7 @@ handle_cloudflare_skills() { delegate setup-cloudflare-skills.sh; }
 handle_mattpocock_skills()  { delegate setup-mattpocock-skills.sh; }
 handle_matrix()            { delegate install-matrix.sh; }
 handle_greetd()            { delegate install-greetd-regreet.sh; }
+handle_tty()               { delegate setup-tty.sh; }
 
 run_item() {
     local id="$1"
