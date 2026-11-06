@@ -36,7 +36,8 @@ authorize_sync() {
             --) ;;
             -y) ((++refresh == 1)) || deny ;;
             -u) ((++upgrade == 1)) || deny ;;
-            --noconfirm) ((++noconfirm == 1)) || deny ;;
+            # Paru can pass this flag both globally and for the transaction.
+            --noconfirm) noconfirm=1 ;;
             --ask=4) ((++ask == 1)) || deny ;;
             --asdeps) ((++asdeps == 1)) || deny ;;
             --needed) ((++needed == 1)) || deny ;;
@@ -62,7 +63,8 @@ authorize_upgrade() {
         shift
         case "$argument" in
             --) ;;
-            --noconfirm) ((++noconfirm == 1)) || deny ;;
+            # Repetition is harmless; still require non-interactive installs.
+            --noconfirm) noconfirm=1 ;;
             --ask=4) ((++ask == 1)) || deny ;;
             --needed) ((++needed == 1)) || deny ;;
             --asdeps) ((++asdeps == 1)) || deny ;;

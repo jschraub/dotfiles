@@ -27,8 +27,13 @@ function upall --description 'Update repository packages, AUR packages, Flatpaks
     echo "---"
     # paru and Flatpak do not update Cachy-Update's cached state, so refresh it
     # now rather than leaving its notification stale until the daily check.
-    echo "Refreshing Cachy-Update status..."
-    arch-update --check
+    if type -q arch-update
+        echo "Refreshing Cachy-Update status..."
+        arch-update --check
+        or set -a failed Cachy-Update
+    else
+        echo "Cachy-Update is not installed; skipping status refresh."
+    end
 
     set -l deferred $__upall_deferred
     set -e __upall_deferred
@@ -63,8 +68,23 @@ function __upall_repo_upgrade --description 'Upgrade repository packages and ret
 end
 
 function __upall_aur_upgrade --description 'Upgrade AUR packages individually so one failure does not block the rest'
-    set -l pending (paru --aur -Qua --quiet)
+    set -l query_errors (mktemp)
     or begin
+        echo "upall: could not create AUR query diagnostic file." >&2
+        return 1
+    end
+    set -l pending (paru --aur -Qua --quiet 2>"$query_errors")
+    set -l query_status $status
+    # Like pacman -Qu, Paru returns 1 for an empty result. Diagnostics or
+    # another exit status indicate a real failure, not an up-to-date system.
+    if test $query_status -eq 1; and test (count $pending) -eq 0; and not test -s "$query_errors"
+        rm -f "$query_errors"
+        echo "No AUR updates available."
+        return 0
+    end
+    cat "$query_errors" >&2
+    rm -f "$query_errors"
+    if test $query_status -ne 0
         echo "upall: could not determine pending AUR updates." >&2
         return 1
     end
