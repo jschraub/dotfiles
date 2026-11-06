@@ -48,8 +48,10 @@ local lidDisplay = "~/.config/hypr/scripts/lid-display.sh"
 hl.on("hyprland.start", function()
     hl.exec_cmd("/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1")
     hl.exec_cmd("gnome-keyring-daemon --start --components=secrets,pkcs11")
-    hl.exec_cmd("swaync & hyprpaper & hypridle")
-    hl.exec_cmd("sleep 1 && waybar")
+    -- Keep idle/sleep evidence across reboots. Without systemd-cat, programs
+    -- spawned here inherit /dev/null and their diagnostics are lost.
+    hl.exec_cmd("swaync & hyprpaper & systemd-cat --identifier=hypridle --level-prefix=false hypridle")
+    hl.exec_cmd("sleep 1 && systemd-cat --identifier=waybar --level-prefix=false waybar")
     -- Well after waybar and after the compositor has settled: catches a session
     -- that started with the lid already shut, which fires no switch event. The
     -- delay must clear the script's own startup guard (see lid-display.sh).
@@ -143,6 +145,7 @@ hl.config({
 
     misc = {
         force_default_wallpaper = 0,
+        key_press_enables_dpms = true,
     },
 })
 

@@ -158,6 +158,7 @@ if [ -n "$pid" ]; then
         RUNTIME="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
         (
             flock 9 || exit 0
+            logger --tag dotfiles-power -- "Requesting Waybar reload after display/lid reconciliation (pid=$pid)" || true
             pkill -USR2 -x waybar 2>/dev/null || true
             sleep 2
         ) 9>"$RUNTIME/lid-display.waybar.lock"
