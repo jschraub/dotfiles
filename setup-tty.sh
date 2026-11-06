@@ -53,7 +53,11 @@ if [[ "$(readlink -f "$dest")" != "$(readlink -f "$src")" ]]; then
     if [[ -e "$dest" || -L "$dest" ]]; then
         mv "$dest" "$dest.pre-tty.$(date +%Y%m%d%H%M%S%N)"
     fi
-    ln -s "$src" "$dest"
+    ln -sr "$src" "$dest"
+elif [[ -L "$dest" ]]; then
+    # GNU Stow ignores absolute links, even when they point into this repo.
+    # Normalize links from older runs so a later ./setup.sh fish can restow.
+    ln -sfnr "$src" "$dest"
 fi
 config="$fish_dir/config.fish"
 if ! grep -qF "$SOURCE_LINE" "$config" 2>/dev/null; then

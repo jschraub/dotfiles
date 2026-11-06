@@ -50,6 +50,13 @@ class TtySetupTest(unittest.TestCase):
             for _ in range(2):
                 subprocess.run(["bash", str(installer)], env=env, check=True,
                                capture_output=True, text=True)
+                link = config_dir / 'tty.fish'
+                self.assertFalse(Path(os.readlink(link)).is_absolute())
+                # Simulate the absolute link made by the original installer;
+                # the next run must normalize it without backing it up again.
+                if _ == 0:
+                    link.unlink()
+                    link.symlink_to(source)
             self.assertEqual(console.read_text(), original.replace('FONT=old', 'FONT=ter-v16n'))
             backups = list(root.glob('vconsole.conf.pre-tty.*'))
             self.assertEqual(len(backups), 1)
@@ -57,6 +64,9 @@ class TtySetupTest(unittest.TestCase):
             self.assertEqual(config.read_text().count('and source ~/.config/fish/tty.fish'), 1)
             self.assertEqual((config_dir / 'tty.fish').resolve(), source)
             self.assertEqual(len(list(config_dir.glob('tty.fish.pre-tty.*'))), 1)
+            if shutil.which('stow'):
+                subprocess.run(['stow', '--simulate', '--restow', '--target', str(home),
+                                '--dir', str(root), 'fish'], check=True, capture_output=True)
 
     def check_fish(self, term, interactive=True):
         # A PTY allows testing the real interactive-only palette path.
