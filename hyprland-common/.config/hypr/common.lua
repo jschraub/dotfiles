@@ -206,11 +206,12 @@ hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 local mainMod = "SUPER"
 
 hl.bind(mainMod .. " + return",    hl.dsp.exec_cmd(terminal))
-hl.bind(mainMod .. " + C",         hl.dsp.window.close())
+hl.bind(mainMod .. " + Q",         hl.dsp.window.close())
 hl.bind(mainMod .. " + backspace", hl.dsp.exec_cmd(lidDisplay .. ' --all-on && sleep 0.5 && (command -v hyprshutdown >/dev/null 2>&1 && hyprshutdown || hyprctl dispatch \'hl.dsp.exit()\')'))
 hl.bind(mainMod .. " + delete",    hl.dsp.exec_cmd("~/.local/bin/wlogout-centered.sh"))
 hl.bind(mainMod .. " + E",         hl.dsp.exec_cmd(fileManager))
-hl.bind(mainMod .. " + V",         hl.dsp.window.float({ action = "toggle" }))
+-- Keep Super+V free for a future clipboard-history picker.
+hl.bind(mainMod .. " + SHIFT + space", hl.dsp.window.float({ action = "toggle" }))
 hl.bind(mainMod .. " + space",     hl.dsp.exec_cmd(menu))
 hl.bind(mainMod .. " + P",         hl.dsp.window.pseudo())
 hl.bind(mainMod .. " + J",         hl.dsp.layout("togglesplit"))
