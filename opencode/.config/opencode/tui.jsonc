@@ -1,8 +1,5 @@
 {
-  "$schema": "https://opencode.ai/tui.json",
-  // OpenCode Quota: tuiCommandDisplay chooses whether native TUI command output appears in the session transcript or a local popup dialog.
-  // OpenCode Quota: loads the TUI sidebar, compact status, and local commands.
-  "plugin": [
-    "@slkiser/opencode-quota@4"
-  ]
+  // Intentionally empty legacy config. V2 loads quota's server AND TUI parts
+  // from the single plugins entry in opencode.jsonc. Do not pin quota v4 here:
+  // a fresh V2 client can migrate legacy settings when cli.json is absent.
 }
