@@ -10,7 +10,7 @@
 #
 # Usage:
 #   ./setup.sh                 # interactive menu
-#   ./setup.sh all             # all default items (optional hardware excluded)
+#   ./setup.sh all             # defaults (legacy desktop and optional hardware excluded)
 #   ./setup.sh hyprland fish   # named items, no prompt
 #   ./setup.sh --list          # print items and exit
 #   ./setup.sh --dry-run ...   # show the plan without changing anything
@@ -38,29 +38,37 @@ STOW_NO_FOLDING=0
 #   STOW[id]    space-separated stow package dirs to link
 #   HANDLER[id] optional function name overriding the generic install+stow
 
-ORDER=(hyprland waybar wofi wlogout ghostty fish nautilus gaming backgrounds avatars opencode cloudflare-skills mattpocock-skills matrix greetd tty)
+ORDER=(hyprland quickshell waybar wofi wlogout ghostty fish nautilus gaming backgrounds avatars zed opencode theme cloudflare-skills mattpocock-skills matrix greetd tty)
 
 declare -A LABEL PKGS STOW HANDLER OPTIONAL
 
 LABEL[hyprland]="Hyprland compositor + full hypr environment (common + machine profile)"
-PKGS[hyprland]="hyprland hyprpaper hypridle hyprlock hyprpicker grimblast-git swaync polkit-gnome gnome-keyring brightnessctl playerctl wireplumber xdg-desktop-portal-hyprland ttf-cascadia-code-nerd"
+PKGS[hyprland]="hyprland hyprpaper hypridle hyprlock hyprpicker grimblast-git polkit-gnome gnome-keyring brightnessctl playerctl wireplumber xdg-desktop-portal-hyprland ttf-cascadia-code-nerd python jq"
 HANDLER[hyprland]=handle_hyprland
 
-LABEL[waybar]="Waybar status bar (+ module click targets: network/bluetooth/audio/cast)"
+LABEL[quickshell]="Atelier desktop: bar, launcher, shortcuts, panels, network and notifications"
+PKGS[quickshell]="quickshell>=0.3.2 inter-font ttf-cascadia-code-nerd python python-gobject ghostty xdg-terminal-exec networkmanager bluez bluez-utils blueman pavucontrol gnome-network-displays wireplumber jq libnotify"
+STOW[quickshell]="quickshell"
+HANDLER[quickshell]=handle_quickshell
+
+LABEL[waybar]="Legacy Waybar status bar (opt-in rollback; includes SwayNC)"
+OPTIONAL[waybar]=1
 # fuzzel/jq/libnotify are what network-menu.sh and vpn-status.sh need; they are
 # declared here rather than relied on transitively so that installing only the
 # waybar package on a fresh machine still yields a working network menu. fuzzel
 # rather than wofi because only fuzzel activates an entry on a single click.
 # 0.16.0 is the first release with Hyprland Lua workspace dispatch support.
-PKGS[waybar]="waybar>=0.16.0 blueman pavucontrol gnome-network-displays fuzzel jq libnotify python-gobject gtk3 gtk-layer-shell wireplumber"
+PKGS[waybar]="waybar>=0.16.0 swaync blueman pavucontrol gnome-network-displays fuzzel jq libnotify python-gobject gtk3 gtk-layer-shell wireplumber"
 STOW[waybar]="waybar"
 HANDLER[waybar]=handle_waybar
 
-LABEL[wofi]="Wofi application launcher"
+LABEL[wofi]="Legacy Wofi application launcher (opt-in rollback)"
+OPTIONAL[wofi]=1
 PKGS[wofi]="wofi"
 STOW[wofi]="wofi"
 
-LABEL[wlogout]="wlogout power menu (+ centered launcher script)"
+LABEL[wlogout]="Legacy wlogout power menu (opt-in rollback)"
+OPTIONAL[wlogout]=1
 PKGS[wlogout]="wlogout jq"
 STOW[wlogout]="wlogout"
 
@@ -70,7 +78,7 @@ STOW[ghostty]="ghostty"
 
 LABEL[fish]="Fish shell + Tide prompt (fisher plugins, keyring secrets)"
 PKGS[fish]="fish fzf fnm libsecret"
-STOW[fish]="fish"
+STOW[fish]="editor fish"
 HANDLER[fish]=handle_fish
 
 LABEL[nautilus]="Nautilus file manager + GTK4 tweaks (delegates setup-nautilus.sh)"
@@ -89,6 +97,16 @@ LABEL[opencode]="OpenCode config + OpenCode Quota usage plugin"
 PKGS[opencode]="nodejs"
 STOW[opencode]="opencode"
 HANDLER[opencode]=handle_opencode
+
+LABEL[zed]="Zed code editor + Atelier Amber theme + default editor integration"
+PKGS[zed]="zed python inter-font ttf-cascadia-code-nerd"
+STOW[zed]="editor zed"
+HANDLER[zed]=handle_zed
+
+LABEL[theme]="Atelier Amber desktop-wide appearance (backed-up user settings, no greeter/sudo)"
+PKGS[theme]="python inter-font breeze-icons"
+STOW[theme]="desktop-theme gtk-4.0"
+HANDLER[theme]=handle_theme
 
 LABEL[cloudflare-skills]="Cloudflare OpenCode skills + remote MCP server"
 HANDLER[cloudflare-skills]=handle_cloudflare_skills
@@ -117,7 +135,11 @@ pkg_install() {
     [[ $# -eq 0 ]] && return 0
     local missing=()
     for p in "$@"; do
-        pacman -Qi "$p" &>/dev/null || missing+=("$p")
+        if [[ "$p" == *[\<\>\=]* ]]; then
+            pacman -T "$p" &>/dev/null || missing+=("$p")
+        else
+            pacman -Qi "$p" &>/dev/null || missing+=("$p")
+        fi
     done
     if [[ ${#missing[@]} -eq 0 ]]; then
         info "packages already installed: $*"
@@ -167,6 +189,7 @@ safe_stow() {
         ok "stowed $pkg"
     else
         warn "stow reported a conflict for '$pkg' — resolve the file(s) above and re-run"
+        return 1
     fi
 }
 
@@ -191,6 +214,7 @@ handle_generic() {
 
 handle_hyprland() {
     pkg_install ${PKGS[hyprland]}
+    safe_stow editor || return
     safe_stow hyprland-common
 
     local machine="${HYPR_MACHINE:-}"
@@ -227,6 +251,14 @@ handle_fish() {
 }
 
 handle_nautilus()          { delegate setup-nautilus.sh; }
+handle_zed() {
+    pkg_install ${PKGS[zed]} || return
+    delegate setup-zed.sh
+}
+handle_theme() {
+    pkg_install ${PKGS[theme]} || return
+    delegate setup-theme.sh
+}
 retire_legacy_matrix_link() {
     local target="$HOME/.config/opencode/plugin/matrix.ts"
     local legacy="$SCRIPT_DIR/opencode/.config/opencode/plugin/matrix.ts"
@@ -253,6 +285,18 @@ handle_cloudflare_skills() { delegate setup-cloudflare-skills.sh; }
 handle_mattpocock_skills()  { delegate setup-mattpocock-skills.sh; }
 handle_matrix()            { delegate install-matrix.sh; }
 handle_waybar()            { delegate setup-waybar.sh; }
+handle_quickshell() {
+    pkg_install ${PKGS[quickshell]} || return
+    if [[ "$DRY_RUN" != 1 ]] && ! command -v qs >/dev/null; then
+        warn "Quickshell is not installed; leaving the current desktop unchanged"
+        return 1
+    fi
+    safe_stow hyprland-common || return
+    safe_stow quickshell || return
+    info "Preview: desktop-shell preview"
+    info "Activate when ready: desktop-shell activate"
+    info "Rollback: desktop-shell legacy (keep legacy packages installed)"
+}
 handle_greetd()            { delegate install-greetd-regreet.sh; }
 handle_tty()               { delegate setup-tty.sh; }
 
@@ -352,7 +396,12 @@ main() {
         [[ "${ans,,}" == "n" ]] && error "aborted"
     fi
 
-    for id in "${selected[@]}"; do run_item "$id"; done
+    for id in "${selected[@]}"; do
+        if ! run_item "$id"; then
+            warn "setup failed for '$id' — stopping before remaining items"
+            return 1
+        fi
+    done
 
     echo
     ok "done: ${selected[*]}"

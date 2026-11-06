@@ -6,7 +6,7 @@ end
 # Do not advertise truecolor on the Linux console. Leave TERM=linux intact.
 set -e COLORTERM
 set -g fish_color_normal normal
-set -g fish_color_command blue
+set -g fish_color_command yellow
 set -g fish_color_param white
 set -g fish_color_quote green
 set -g fish_color_error red
@@ -14,7 +14,7 @@ set -g fish_color_comment brblack
 set -g fish_color_operator yellow
 set -g fish_color_escape cyan
 set -g fish_color_autosuggestion brblack
-set -g fish_color_cwd blue
+set -g fish_color_cwd yellow
 set -g fish_color_valid_path --underline
 set -g fish_color_redirection cyan
 set -g fish_color_end green
@@ -28,7 +28,7 @@ function fish_prompt
     set -l last_status $status
     set_color cyan
     printf '%s@%s ' $USER (hostname -s)
-    set_color blue
+    set_color yellow
     printf '%s' (prompt_pwd)
     set_color normal
     if test $last_status -ne 0
@@ -53,9 +53,12 @@ if command -q eza
     alias lt='eza -aT --color=auto --group-directories-first --icons=never'
 end
 
-# Catppuccin Mocha's 16 ANSI colors, using Linux console palette escapes.
-set -l palette 1e1e2e f38ba8 a6e3a1 f9e2af 89b4fa f5c2e7 94e2d5 bac2de \
-               585b70 f38ba8 a6e3a1 f9e2af 89b4fa f5c2e7 94e2d5 cdd6f4
+# Atelier's shared ANSI colors, using Linux console palette escapes.
+# setup-tty.sh also installs the palette when used independently.
+if not set -q atelier_ansi[16]
+    source (dirname (status filename))/conf.d/00-atelier-palette.fish
+end
+set -l palette $atelier_ansi
 for i in (seq 1 16)
     printf '\e]P%x%s' (math $i - 1) $palette[$i]
 end

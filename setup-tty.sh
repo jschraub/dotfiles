@@ -60,6 +60,15 @@ elif [[ -L "$dest" ]]; then
     ln -sfnr "$src" "$dest"
 fi
 config="$fish_dir/config.fish"
+palette_src="$SCRIPT_DIR/fish/.config/fish/conf.d/00-atelier-palette.fish"
+palette_dest="$fish_dir/conf.d/00-atelier-palette.fish"
+mkdir -p "$fish_dir/conf.d"
+if [[ "$(readlink -f "$palette_dest")" != "$(readlink -f "$palette_src")" ]]; then
+    if [[ -e "$palette_dest" || -L "$palette_dest" ]]; then
+        mv "$palette_dest" "$palette_dest.pre-tty.$(date +%Y%m%d%H%M%S%N)"
+    fi
+    ln -sr "$palette_src" "$palette_dest"
+fi
 if ! grep -qF "$SOURCE_LINE" "$config" 2>/dev/null; then
     if [[ -e "$config" ]]; then
         cp -a "$config" "$config.pre-tty.$(date +%Y%m%d%H%M%S%N)"

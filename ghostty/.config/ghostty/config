@@ -1,11 +1,12 @@
-theme = Catppuccin Mocha
-# theme = GruvboxDark
+theme = Atelier Amber
 # font-family = Meslo LGS Nerd Font Mono
 # font-family = CaskaydiaMono Nerd Font
 font-family = CaskaydiaCove Nerd Font
-font-size = 11
-background-opacity = 0.7
+font-size = 10
+background-opacity = 0.85
 gtk-titlebar = false
+# Native tabs/toasts are GTK widgets, separate from the terminal ANSI theme.
+gtk-custom-css = atelier.css
 # custom-shader = /home/chris/bloom.glsl
 # custom-shader = /home/chris/crt.glsl
 

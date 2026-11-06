@@ -1,0 +1,33 @@
+{
+  "name": "Atelier Amber",
+  "colors": {
+    "background": "#181818",
+    "panel": "#222222",
+    "raised": "#303030",
+    "hover": "#3a3a3a",
+    "line": "#484848",
+    "text": "#e6e6e6",
+    "muted": "#a6a6a6",
+    "faint": "#858585",
+    "accent": "#e5a120",
+    "orange": "#e87524",
+    "danger": "#ef5350",
+    "good": "#65c18c",
+    "info": "#70a8cf",
+    "cyan": "#65b8b0",
+    "selection": "#503a16",
+    "onAccent": "#181818"
+  },
+  "promptBackgrounds": {
+    "user": "#404040",
+    "clock": "#333333",
+    "git": "#262626",
+    "environment": "#191919"
+  },
+  "ansi": [
+    "#222222", "#ef5350", "#65c18c", "#e5a120",
+    "#70a8cf", "#e87524", "#65b8b0", "#c8c8c8",
+    "#858585", "#ff7470", "#85d9a6", "#ffc45c",
+    "#91c4eb", "#ff9b58", "#87d6ce", "#e6e6e6"
+  ]
+}

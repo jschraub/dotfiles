@@ -8,6 +8,9 @@ package.path = (os.getenv("HOME") or "") .. "/.config/hypr/?.lua;" .. package.pa
 
 require("common")
 
+-- Keep the original Mordor wallpaper independently of oki-mecha's new artwork.
+hl.env("ATELIER_WALLPAPER_CONFIG", (os.getenv("HOME") or "") .. "/.config/hypr/hyprpaper.conf")
+
 
 -------------------------------
 ---- ENVIRONMENT VARIABLES ----

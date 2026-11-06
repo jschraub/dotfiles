@@ -151,6 +151,11 @@ fi
 # Serialized for the same reason: two SIGUSR2 inside one reload cycle kills waybar
 # outright, observed 45ms apart. This script runs from several places and
 # monitor.added fires once per output, so back-to-back invocations are normal.
+# Atelier creates/destroys bars from Quickshell.screens; it needs no restart or
+# reload when an output changes. Preserve the old workaround only for rollback.
+if command -v desktop-shell >/dev/null 2>&1 && [ "$(desktop-shell mode)" = quickshell ]; then
+    exit 0
+fi
 pid=$(pgrep -x -o waybar 2>/dev/null || true)
 if [ -n "$pid" ]; then
     age=$(ps -o etimes= -p "$pid" 2>/dev/null | tr -dc 0-9)

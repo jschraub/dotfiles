@@ -1,188 +1,76 @@
-/* Catppuccin Tolkien — ReGreet CSS Theme
- *
- * Catppuccin Mocha palette:
- *   Base:     #1e1e2e    Mantle:   #181825    Crust:    #11111b
- *   Surface0: #313244    Surface1: #45475a    Surface2: #585b70
- *   Overlay0: #6c7086    Overlay1: #7f849c    Overlay2: #9399b2
- *   Subtext0: #a6adc8    Subtext1: #bac2de    Text:     #cdd6f4
- *   Peach:    #fab387    Red:      #f38ba8    Green:    #a6e3a1
- *   Lavender: #b4befe    Rosewater:#f5e0dc    Flamingo: #f2cdcd
- */
-
-/* ── Global window ── */
-window {
-  background-color: transparent;
-}
-
-/* ── Login box frame (centered card) ── */
+/* Generated from theme/palette.json; Atelier Amber. Authentication and layout unchanged. */
+window { background-color: transparent; }
 frame.background {
-  background-color: alpha(#1e1e2e, 0.85);
+  background-color: alpha(#181818, 0.85);
   border-radius: 24px;
-  border: 2px solid #313244;
+  border: 2px solid #303030;
   padding: 20px;
 }
-
-/* ── Grid inside login box (also hosts the faked user avatar) ── */
 grid {
-  color: #cdd6f4;
-
-  /* ReGreet has no avatar widget, so paint a pre-rendered circular image
-   * (peach rim — matches the hyprlock lockscreen avatar) at the top of the
-   * login form. The image is installed to the path below by
-   * install-greetd-regreet.sh; padding-top reserves room so the greeting and
-   * fields sit beneath it. Tune background-size / padding-top to taste. */
+  color: #e6e6e6;
   background-image: url("/usr/share/backgrounds/greeter-avatar.png");
   background-repeat: no-repeat;
   background-position: center top;
   background-size: 100px 100px;
   padding-top: 120px;
 }
-
-/* ── All labels ── */
-label {
-  color: #cdd6f4;
-  font-family: "CaskaydiaCove Nerd Font";
-}
-
-/* ── Row labels (User:, Session:, Password:) ── */
-grid > label {
-  color: #a6adc8;
-  font-weight: bold;
-}
-
-/* ── Greeting / message label (top of login box) ── */
-grid > label:first-child {
-  color: #fab387;
-  font-size: 20px;
-  font-weight: bold;
-  margin-bottom: 10px;
-}
-
-/* ── Clock frame (top center) ── */
+label { color: #e6e6e6; font-family: "CaskaydiaCove Nerd Font"; }
+grid > label { color: #a6a6a6; font-weight: bold; }
+grid > label:first-child { color: #e5a120; font-size: 20px; font-weight: bold; margin-bottom: 10px; }
 frame.background:first-child {
-  background-color: alpha(#1e1e2e, 0.85);
+  background-color: alpha(#181818, 0.85);
   border-radius: 0 0 16px 16px;
-  border: 2px solid #313244;
+  border: 2px solid #303030;
   border-top: none;
   padding: 8px 24px;
 }
-
-/* ── Clock label ── */
-frame.background label {
-  color: #cdd6f4;
-  font-size: 24px;
-  font-weight: bold;
-  font-family: "CaskaydiaCove Nerd Font";
-}
-
-/* ── All entries (username, password, session) ── */
+frame.background label { color: #e6e6e6; font-size: 24px; font-weight: bold; font-family: "CaskaydiaCove Nerd Font"; }
 entry {
-  background-color: #313244;
-  color: #cdd6f4;
-  border: 4px solid #45475a;
+  background-color: #303030;
+  color: #e6e6e6;
+  border: 4px solid #3a3a3a;
   border-radius: 30px;
   padding: 10px 20px;
-  caret-color: #fab387;
+  caret-color: #e5a120;
   min-height: 24px;
   font-family: "CaskaydiaCove Nerd Font";
   font-size: 16px;
 }
-
-entry:focus {
-  border-color: #fab387;
-}
-
-entry selection {
-  background-color: #fab387;
-  color: #1e1e2e;
-}
-
-/* ── Password entry (show-peek icon styled) ── */
-entry.password image {
-  color: #6c7086;
-}
-
-entry.password:focus image {
-  color: #fab387;
-}
-
-/* ── Placeholder text ── */
-entry > text > block-cursor {
-  color: #6c7086;
-}
-
-/* ── Combo boxes / dropdowns (user & session selectors) ── */
+entry:focus { border-color: #e5a120; }
+entry selection { background-color: #e5a120; color: #181818; }
+entry.password image, entry > text > block-cursor { color: #858585; }
+entry.password:focus image { color: #e5a120; }
 combobox button {
-  background-color: #313244;
-  border: 4px solid #45475a;
+  background-color: #303030;
+  border: 4px solid #3a3a3a;
   border-radius: 30px;
-  color: #cdd6f4;
+  color: #e6e6e6;
   padding: 10px 20px;
   min-height: 24px;
   font-family: "CaskaydiaCove Nerd Font";
   font-size: 16px;
 }
-
-combobox button:hover,
-combobox button:focus {
-  border-color: #fab387;
-}
-
-combobox arrow {
-  color: #a6adc8;
-}
-
-/* ── Dropdown menu (popover) ── */
-popover,
-popover contents {
-  background-color: #313244;
-  border: 2px solid #45475a;
-  border-radius: 12px;
-  color: #cdd6f4;
-}
-
-popover modelbutton {
-  padding: 8px 12px;
-  border-radius: 8px;
-  color: #cdd6f4;
-}
-
-popover modelbutton:hover {
-  background-color: #45475a;
-  color: #fab387;
-}
-
-popover modelbutton:selected {
-  color: #fab387;
-}
-
-/* ── Toggle buttons (manual entry) ── */
+combobox button:hover, combobox button:focus { border-color: #e5a120; }
+combobox arrow { color: #a6a6a6; }
+popover, popover contents { background-color: #303030; border: 2px solid #3a3a3a; border-radius: 12px; color: #e6e6e6; }
+popover modelbutton { padding: 8px 12px; border-radius: 8px; color: #e6e6e6; }
+popover modelbutton:hover { background-color: #3a3a3a; color: #e5a120; }
+popover modelbutton:selected { color: #e5a120; }
 togglebutton {
   background-color: transparent;
-  border: 2px solid #45475a;
+  border: 2px solid #3a3a3a;
   border-radius: 30px;
-  color: #6c7086;
+  color: #858585;
   padding: 6px;
   min-height: 24px;
   min-width: 24px;
 }
-
-togglebutton:hover {
-  border-color: #fab387;
-  color: #fab387;
-}
-
-togglebutton:checked {
-  background-color: #fab387;
-  border-color: #fab387;
-  color: #1e1e2e;
-}
-
-/* ── Buttons (general) ── */
+togglebutton:hover { border-color: #e5a120; color: #e5a120; }
+togglebutton:checked { background-color: #e5a120; border-color: #e5a120; color: #181818; }
 button {
   background-color: transparent;
-  color: #cdd6f4;
-  border: 2px solid #45475a;
+  color: #e6e6e6;
+  border: 2px solid #3a3a3a;
   border-radius: 30px;
   padding: 8px 20px;
   min-height: 24px;
@@ -190,102 +78,19 @@ button {
   font-size: 16px;
   transition: all 150ms ease-in-out;
 }
-
-button:hover {
-  background-color: #313244;
-  border-color: #fab387;
-  color: #fab387;
-}
-
-button:active {
-  background-color: #fab387;
-  color: #1e1e2e;
-}
-
-button:focus {
-  border-color: #fab387;
-}
-
-/* ── Login button (suggested-action) ── */
-button.suggested-action {
-  background-color: transparent;
-  color: #fab387;
-  border: 2px solid #fab387;
-  font-weight: bold;
-}
-
-button.suggested-action:hover {
-  background-color: #fab387;
-  color: #1e1e2e;
-}
-
-button.suggested-action:active {
-  background-color: #e5a070;
-  border-color: #e5a070;
-}
-
-/* ── Cancel button ── */
-button:not(.suggested-action):not(.destructive-action) {
-  color: #6c7086;
-  border-color: #45475a;
-}
-
-button:not(.suggested-action):not(.destructive-action):hover {
-  color: #cdd6f4;
-  border-color: #cdd6f4;
-  background-color: #313244;
-}
-
-/* ── Power buttons (reboot, power off — destructive-action) ── */
-button.destructive-action {
-  background-color: transparent;
-  border: 2px solid #45475a;
-  border-radius: 30px;
-  color: #a6adc8;
-  font-weight: bold;
-}
-
-button.destructive-action:hover {
-  border-color: #f38ba8;
-  color: #f38ba8;
-  background-color: alpha(#f38ba8, 0.1);
-}
-
-button.destructive-action:active {
-  background-color: #f38ba8;
-  color: #1e1e2e;
-}
-
-/* ── Error info bar ── */
-infobar {
-  background-color: alpha(#f38ba8, 0.15);
-  border: 2px solid #f38ba8;
-  border-radius: 12px;
-}
-
-infobar label {
-  color: #f38ba8;
-  font-weight: bold;
-}
-
-/* ── Selection highlight ── */
-*:selected {
-  background-color: #fab387;
-  color: #1e1e2e;
-}
-
-/* ── Scrollbar ── */
-scrollbar slider {
-  background-color: #45475a;
-  border-radius: 8px;
-}
-
-scrollbar slider:hover {
-  background-color: #585b70;
-}
-
-/* ── Selection highlight ── */
-*:selected {
-  background-color: #fab387;
-  color: #1e1e2e;
-}
+button:hover { background-color: #303030; border-color: #e5a120; color: #e5a120; }
+button:active { background-color: #e5a120; color: #181818; }
+button:focus { border-color: #e5a120; }
+button.suggested-action { background-color: transparent; color: #e5a120; border: 2px solid #e5a120; font-weight: bold; }
+button.suggested-action:hover { background-color: #e5a120; color: #181818; }
+button.suggested-action:active { background-color: #e87524; border-color: #e87524; }
+button:not(.suggested-action):not(.destructive-action) { color: #858585; border-color: #3a3a3a; }
+button:not(.suggested-action):not(.destructive-action):hover { color: #e6e6e6; border-color: #e6e6e6; background-color: #303030; }
+button.destructive-action { background-color: transparent; border: 2px solid #3a3a3a; border-radius: 30px; color: #a6a6a6; font-weight: bold; }
+button.destructive-action:hover { border-color: #ef5350; color: #ef5350; background-color: alpha(#ef5350, 0.1); }
+button.destructive-action:active { background-color: #ef5350; color: #181818; }
+infobar { background-color: alpha(#ef5350, 0.15); border: 2px solid #ef5350; border-radius: 12px; }
+infobar label { color: #ef5350; font-weight: bold; }
+*:selected { background-color: #e5a120; color: #181818; }
+scrollbar slider { background-color: #3a3a3a; border-radius: 8px; }
+scrollbar slider:hover { background-color: #484848; }

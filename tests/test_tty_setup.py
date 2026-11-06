@@ -106,8 +106,10 @@ class TtySetupTest(unittest.TestCase):
         output = self.check_fish('linux')
         self.assertNotIn('ORIGINAL', output)
         self.assertIn('--icons=never', output)
-        self.assertIn('\x1b]P01e1e2e', output)
-        self.assertIn('\x1b]Pfcdd6f4', output)
+        import json
+        palette = json.loads((ROOT / 'theme/palette.json').read_text())['ansi']
+        self.assertIn('\x1b]P0' + palette[0][1:], output)
+        self.assertIn('\x1b]Pf' + palette[15][1:], output)
         self.assertNotIn('COLORTERM=truecolor', output)
 
     def test_gui_and_noninteractive_shells_unchanged(self):

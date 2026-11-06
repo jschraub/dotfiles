@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Claude Code statusline — Catppuccin Mocha powerline with rounded left cap
+# Claude Code statusline — Atelier Amber powerline with rounded left cap
 # Reads JSON from stdin, prints a single styled line.
 
 input=$(cat)
@@ -9,47 +9,32 @@ input=$(cat)
 # script via settings.json, so there is exactly one copy of that logic and it
 # ships with the public repo rather than being stranded in these dotfiles.
 
-# ── Catppuccin Mocha palette (truecolor R;G;B) ───────────────────────────────
-cat_rosewater="245;224;220"
-cat_flamingo="242;205;205"
-cat_pink="245;194;231"
-cat_mauve="203;166;247"
-cat_red="243;139;168"
-cat_maroon="235;160;172"
-cat_peach="250;179;135"
-cat_yellow="249;226;175"
-cat_green="166;227;161"
-cat_teal="148;226;213"
-cat_sky="137;220;235"
-cat_sapphire="116;199;236"
-cat_blue="137;180;250"
-cat_lavender="180;190;254"
-cat_crust="17;17;27"
+# Shared generated truecolor palette; resolve the real script through Stow.
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/atelier-palette.sh"
 
 # ── Style ────────────────────────────────────────────────────────────────────
 reset=$'\e[0m'
 bold=$'\e[1m'
 
-# Per-segment background colors — pastel Catppuccin hues arranged as a
-# left→right spectrum sweep: violet → blue → cyan → green → yellow → warm-red
-bg_user="$cat_mauve"        # user            (violet)
-bg_time="$cat_blue"         # clock           (blue)
-bg_dir="$cat_sapphire"      # folder          (cyan)
-bg_git_clean="$cat_green"   # git, clean      (green)
-bg_git_dirty="$cat_peach"   # git, dirty      (orange — breaks gradient to stand out)
-bg_claude="$cat_yellow"     # claude / model  (yellow)
-bg_rate="$cat_maroon"       # rate limits     (warm red)
+# Quiet neutral segments, with amber only on the directory/model and dirty git.
+bg_user="$atelier_raised"
+bg_time="$atelier_line"
+bg_dir="$atelier_accent"
+bg_git_clean="$atelier_raised"
+bg_git_dirty="$atelier_selection"
+bg_claude="$atelier_accent"
+bg_rate="$atelier_line"
 
 # Per-segment icon foreground — same dark Crust as text (bold for emphasis)
-icon_fg_dir="$cat_crust"
-icon_fg_git_clean="$cat_crust"
-icon_fg_git_dirty="$cat_crust"
-icon_fg_time="$cat_crust"
-icon_fg_claude="$cat_crust"
-icon_fg_rate="$cat_crust"
-icon_fg_user="$cat_crust"
+icon_fg_dir="$atelier_onAccent"
+icon_fg_git_clean="$atelier_text"
+icon_fg_git_dirty="$atelier_text"
+icon_fg_time="$atelier_text"
+icon_fg_claude="$atelier_onAccent"
+icon_fg_rate="$atelier_text"
+icon_fg_user="$atelier_text"
 
-fg_text="$cat_crust"             # dark text on every pastel bg
+fg_text="$atelier_text"
 
 # Powerline glyphs (Nerd Font)
 cap_left=$'\xee\x82\xb6'     # nf-pl-right_soft_divider (rounded left cap)
@@ -161,8 +146,8 @@ for ((i=0; i<n; i++)); do
     out+="$(set_fg "$fg_text") ${reset}"
     # Icon in its own color, bold for emphasis
     out+="$(set_bg "$bg")$(set_fg "${icon_fgs[i]}")${bold}${icons[i]}${reset}"
-    # Text in dark Crust on the same pastel bg
-    out+="$(set_bg "$bg")$(set_fg "$fg_text")${texts[i]} ${reset}"
+    # Dark text on amber, light text on graphite (same contrast as its icon).
+    out+="$(set_bg "$bg")$(set_fg "${icon_fgs[i]}")${texts[i]} ${reset}"
 
     if (( i < n - 1 )); then
         # Chevron blends into next segment's bg

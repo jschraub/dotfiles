@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Zed (Atelier)
+GenericName=Code Editor
+Comment=Open in Zed with the Atelier desktop theme
+Exec=desktop-editor %F
+TryExec=desktop-editor
+Icon=zed
+Terminal=false
+Categories=Development;IDE;TextEditor;
+MimeType=text/plain;
+StartupNotify=true

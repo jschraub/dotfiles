@@ -1,0 +1,21 @@
+{
+  "name": "atelier-amber",
+  "displayName": "Atelier Amber",
+  "publisher": "atelier",
+  "version": "1.0.0",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Themes"
+  ],
+  "contributes": {
+    "themes": [
+      {
+        "label": "Atelier Amber",
+        "uiTheme": "vs-dark",
+        "path": "./themes/atelier.json"
+      }
+    ]
+  }
+}

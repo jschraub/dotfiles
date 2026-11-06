@@ -10,6 +10,31 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class HostSetupTest(unittest.TestCase):
+    def test_wallpaper_selection_is_machine_specific(self):
+        shared = (ROOT / 'hyprland-common/.config/hypr/hyprpaper.conf').read_text()
+        self.assertIn('path = ~/.config/backgrounds/tolkien/mordor.jpg', shared)
+        self.assertNotIn('mordor-atelier', shared)
+        oki = (ROOT / 'hyprland-oki-mecha/.config/hypr/hyprland.lua').read_text()
+        mini = (ROOT / 'hyprland-mini-mecha/.config/hypr/hyprland.lua').read_text()
+        self.assertIn('/.config/hypr/hyprpaper-oki-mecha.conf', oki)
+        self.assertIn('/.config/hypr/hyprpaper.conf', mini)
+        self.assertNotIn('mordor-atelier', mini)
+        config = (ROOT / 'hyprland-oki-mecha/.config/hypr/hyprpaper-oki-mecha.conf').read_text()
+        self.assertIn('mordor-atelier-5k.png', config)
+        self.assertIn('fit_mode = cover', config)
+
+    def test_oki_wallpaper_is_at_least_4k_widescreen(self):
+        # Read the standard PNG IHDR directly; tests need no Pillow dependency.
+        import struct
+        path = ROOT / 'backgrounds/.config/backgrounds/tolkien/mordor-atelier-5k.png'
+        with path.open('rb') as image:
+            header = image.read(24)
+        self.assertEqual(header[:8], b'\x89PNG\r\n\x1a\n')
+        width, height = struct.unpack('>II', header[16:24])
+        self.assertGreaterEqual(width, 3840)
+        self.assertGreaterEqual(height, 2160)
+        self.assertEqual(width * 9, height * 16)
+
     def test_default_selection_excludes_matrix(self):
         result = subprocess.run(['bash', '-c', 'source ./setup.sh; default_items'], cwd=ROOT,
                                 check=True, capture_output=True, text=True)

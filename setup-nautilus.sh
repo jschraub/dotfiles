@@ -9,7 +9,7 @@ error() { printf '\033[1;31m::\033[0m %s\n' "$*"; exit 1; }
 
 # ── Install packages ──
 install_packages() {
-    local pkgs=(nautilus polkit-gnome gvfs gvfs-mtp gvfs-smb)
+    local pkgs=(nautilus polkit-gnome gvfs gvfs-mtp gvfs-smb python inter-font breeze-icons)
     local missing=()
     for pkg in "${pkgs[@]}"; do
         pacman -Qi "$pkg" &>/dev/null || missing+=("$pkg")
@@ -28,9 +28,9 @@ install_packages() {
 install_gtk4_css() {
     info "Installing GTK4 settings via stow..."
     mkdir -p "$HOME/.config/gtk-4.0"
-    # Remove existing real file so stow can create the symlink
-    rm -f "$GTK4_SETTINGS_DEST"
-    stow -d "$SCRIPT_DIR" -t "$HOME" gtk-4.0
+    # Shared installer backs up conflicting real files AND old theme symlinks.
+    # Also installs GTK3 and neutral/amber theme assets for advanced settings apps.
+    python3 "$SCRIPT_DIR/scripts/apply_theme.py" --no-runtime
 }
 
 # ── Configure Nautilus via gsettings ──
@@ -39,6 +39,10 @@ configure_nautilus() {
 
     # Dark mode
     gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+    gsettings set org.gnome.desktop.interface gtk-theme 'Atelier'
+    if gsettings list-keys org.gnome.desktop.interface | grep -qx accent-color; then
+        gsettings set org.gnome.desktop.interface accent-color 'yellow'
+    fi
 
     # List view with compact rows by default
     gsettings set org.gnome.nautilus.preferences default-folder-viewer 'list-view'

@@ -17,7 +17,7 @@ import unittest
 import uuid
 
 
-SCRIPT = Path(__file__).resolve().parents[1] / "waybar/.local/bin/keep-awake.sh"
+SCRIPT = Path(__file__).resolve().parents[1] / "hyprland-common/.local/bin/dotfiles-keep-awake.sh"
 
 
 def run(*args):

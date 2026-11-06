@@ -8,6 +8,8 @@ Run as your normal user, not with sudo:
 ./check-setup.sh --verbose tty greetd  # include successful checks
 ./check-setup.sh --machine mini-mecha hyprland
 ./check-setup.sh --list
+./check-setup.sh theme                 # shared palette + installed appearance
+./check-setup.sh zed                   # editor package, launcher, theme and text/plain default
 ```
 
 The script is read-only: no installations, repairs, network requests, authentication
@@ -34,8 +36,14 @@ add checks for the separate system installers.
 ## Coverage
 
 - Declared packages must be installed; exact package versions are not pinned.
+  Atelier's `quickshell` item requires Quickshell >=0.3.2 and checks its QML,
+  desktop-entry terminal preference, and declared backend/UI dependencies. Setup
+  installation is separate from activation; intentionally staying in legacy mode
+  during rollout is not drift. See [Atelier setup](docs/atelier.md).
   Waybar is an exception: stable >=0.16.0 is required for Lua workspace clicks;
-  `waybar-git` is an accepted fallback. `./setup-waybar.sh` migrates a Git install
+  `waybar-git` is an accepted fallback. Waybar/Wofi/wlogout are now opt-in legacy
+  items, excluded from default setup/audits along with optional Matrix hardware.
+  `./setup-waybar.sh` migrates a Git install
   to stable once a sufficiently new stable package is available in the local
   sync database. `--stable` refuses to fall back, without removing the current bar.
 - Each file in selected Stow packages must resolve to this checkout with matching
@@ -51,6 +59,10 @@ add checks for the separate system installers.
   sudoers policy are checked. The root-only sudoers policy will normally be UNKNOWN
   without elevated access; the audit never attempts sudo itself.
 - Nautilus settings are queried with `gsettings get`, never `set`.
+- `theme` is included by default. Its audit checks generated palette drift,
+  GTK3/4/VS Code theme assets, GTK dark/amber preferences, existing OpenCode/VS Code
+  theme selections and browser stylesheet links. Exact runtime rendering remains
+  UNKNOWN. See [portable theme setup](docs/theme.md).
 - Fisher/Tide presence and external Matrix/skills checkout layout are checked.
   Moving upstream versions, delegated Matrix installation, plugin runtime behavior,
   credentials, and firmware are **not** fully verifiable from this repo and are

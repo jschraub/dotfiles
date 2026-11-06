@@ -1,5 +1,9 @@
 # Waybar calendar and audio popups
 
+These legacy popups remain available for rollback. The new default desktop
+installer is [Atelier/Quickshell](atelier.md), with native calendar and audio
+panels. Installing it does not activate it or remove these legacy components.
+
 - Click the date/time to open the calendar. Navigate months, select dates, or
   return to Today without closing it. Escape or an outside click dismisses it.
 - Click the speaker to open a 0–100% output-volume slider and mute control.

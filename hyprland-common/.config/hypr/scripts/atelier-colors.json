@@ -1,0 +1,18 @@
+{
+  "background": "#181818",
+  "panel": "#222222",
+  "raised": "#303030",
+  "hover": "#3a3a3a",
+  "line": "#484848",
+  "text": "#e6e6e6",
+  "muted": "#a6a6a6",
+  "faint": "#858585",
+  "accent": "#e5a120",
+  "orange": "#e87524",
+  "danger": "#ef5350",
+  "good": "#65c18c",
+  "info": "#70a8cf",
+  "cyan": "#65b8b0",
+  "selection": "#503a16",
+  "onAccent": "#181818"
+}

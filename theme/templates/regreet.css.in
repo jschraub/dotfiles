@@ -1,0 +1,97 @@
+destination: greetd-setup/etc/greetd/regreet.css
+/* Generated from theme/palette.json; Atelier Amber. Authentication and layout unchanged. */
+window { background-color: transparent; }
+frame.background {
+  background-color: alpha({{background}}, 0.85);
+  border-radius: 24px;
+  border: 2px solid {{raised}};
+  padding: 20px;
+}
+grid {
+  color: {{text}};
+  background-image: url("/usr/share/backgrounds/greeter-avatar.png");
+  background-repeat: no-repeat;
+  background-position: center top;
+  background-size: 100px 100px;
+  padding-top: 120px;
+}
+label { color: {{text}}; font-family: "CaskaydiaCove Nerd Font"; }
+grid > label { color: {{muted}}; font-weight: bold; }
+grid > label:first-child { color: {{accent}}; font-size: 20px; font-weight: bold; margin-bottom: 10px; }
+frame.background:first-child {
+  background-color: alpha({{background}}, 0.85);
+  border-radius: 0 0 16px 16px;
+  border: 2px solid {{raised}};
+  border-top: none;
+  padding: 8px 24px;
+}
+frame.background label { color: {{text}}; font-size: 24px; font-weight: bold; font-family: "CaskaydiaCove Nerd Font"; }
+entry {
+  background-color: {{raised}};
+  color: {{text}};
+  border: 4px solid {{hover}};
+  border-radius: 30px;
+  padding: 10px 20px;
+  caret-color: {{accent}};
+  min-height: 24px;
+  font-family: "CaskaydiaCove Nerd Font";
+  font-size: 16px;
+}
+entry:focus { border-color: {{accent}}; }
+entry selection { background-color: {{accent}}; color: {{onAccent}}; }
+entry.password image, entry > text > block-cursor { color: {{faint}}; }
+entry.password:focus image { color: {{accent}}; }
+combobox button {
+  background-color: {{raised}};
+  border: 4px solid {{hover}};
+  border-radius: 30px;
+  color: {{text}};
+  padding: 10px 20px;
+  min-height: 24px;
+  font-family: "CaskaydiaCove Nerd Font";
+  font-size: 16px;
+}
+combobox button:hover, combobox button:focus { border-color: {{accent}}; }
+combobox arrow { color: {{muted}}; }
+popover, popover contents { background-color: {{raised}}; border: 2px solid {{hover}}; border-radius: 12px; color: {{text}}; }
+popover modelbutton { padding: 8px 12px; border-radius: 8px; color: {{text}}; }
+popover modelbutton:hover { background-color: {{hover}}; color: {{accent}}; }
+popover modelbutton:selected { color: {{accent}}; }
+togglebutton {
+  background-color: transparent;
+  border: 2px solid {{hover}};
+  border-radius: 30px;
+  color: {{faint}};
+  padding: 6px;
+  min-height: 24px;
+  min-width: 24px;
+}
+togglebutton:hover { border-color: {{accent}}; color: {{accent}}; }
+togglebutton:checked { background-color: {{accent}}; border-color: {{accent}}; color: {{onAccent}}; }
+button {
+  background-color: transparent;
+  color: {{text}};
+  border: 2px solid {{hover}};
+  border-radius: 30px;
+  padding: 8px 20px;
+  min-height: 24px;
+  font-family: "CaskaydiaCove Nerd Font";
+  font-size: 16px;
+  transition: all 150ms ease-in-out;
+}
+button:hover { background-color: {{raised}}; border-color: {{accent}}; color: {{accent}}; }
+button:active { background-color: {{accent}}; color: {{onAccent}}; }
+button:focus { border-color: {{accent}}; }
+button.suggested-action { background-color: transparent; color: {{accent}}; border: 2px solid {{accent}}; font-weight: bold; }
+button.suggested-action:hover { background-color: {{accent}}; color: {{onAccent}}; }
+button.suggested-action:active { background-color: {{orange}}; border-color: {{orange}}; }
+button:not(.suggested-action):not(.destructive-action) { color: {{faint}}; border-color: {{hover}}; }
+button:not(.suggested-action):not(.destructive-action):hover { color: {{text}}; border-color: {{text}}; background-color: {{raised}}; }
+button.destructive-action { background-color: transparent; border: 2px solid {{hover}}; border-radius: 30px; color: {{muted}}; font-weight: bold; }
+button.destructive-action:hover { border-color: {{danger}}; color: {{danger}}; background-color: alpha({{danger}}, 0.1); }
+button.destructive-action:active { background-color: {{danger}}; color: {{onAccent}}; }
+infobar { background-color: alpha({{danger}}, 0.15); border: 2px solid {{danger}}; border-radius: 12px; }
+infobar label { color: {{danger}}; font-weight: bold; }
+*:selected { background-color: {{accent}}; color: {{onAccent}}; }
+scrollbar slider { background-color: {{hover}}; border-radius: 8px; }
+scrollbar slider:hover { background-color: {{line}}; }

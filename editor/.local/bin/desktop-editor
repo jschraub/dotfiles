@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Stable editor entrypoint for Hyprland, EDITOR/VISUAL and desktop file opens.
+# Arch calls Zed "zeditor"; upstream calls it "zed". Preserve argument boundaries.
+set -euo pipefail
+for candidate in zeditor zed code; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+        exec "$candidate" "$@"
+    fi
+done
+printf '%s\n' 'No editor found. Install Zed with: ./setup.sh zed' >&2
+exit 127

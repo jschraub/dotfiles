@@ -1,5 +1,7 @@
 """Read-only comparison of installed configuration with this working checkout."""
 import argparse
+import importlib.util
+import json
 from collections import Counter
 import os
 from pathlib import Path
@@ -95,6 +97,15 @@ class Audit:
                 else:
                     self.report('UNKNOWN', 'Waybar Lua support', 'dependency query failed')
                 continue
+            if re.search(r'[<>=]', package):
+                result = subprocess.run(['pacman', '-T', package], capture_output=True, text=True)
+                if result.returncode == 0:
+                    self.report('OK', f'package {package}')
+                elif result.returncode == 127 and package in result.stdout.splitlines():
+                    self.report('DRIFT', f'package {package}', 'missing or version too old')
+                else:
+                    self.report('UNKNOWN', f'package {package}', 'dependency query failed')
+                continue
             result = subprocess.run(['pacman', '-Q', package], capture_output=True, text=True,
                                     env=dict(os.environ, LC_ALL='C'))
             if result.returncode == 0:
@@ -130,6 +141,8 @@ class Audit:
     def tty(self):
         self.packages(['terminus-font', 'fish'])
         self.file(self.root / 'fish/.config/fish/tty.fish', self.home / '.config/fish/tty.fish', linked=True)
+        self.file(self.root / 'fish/.config/fish/conf.d/00-atelier-palette.fish',
+                  self.home / '.config/fish/conf.d/00-atelier-palette.fish', linked=True)
         try:
             text = Path('/etc/vconsole.conf').read_text()
             fonts = re.findall(r'^\s*FONT\s*=\s*["\']?([^\s"\']+)', text, re.MULTILINE)
@@ -193,10 +206,12 @@ class Audit:
             self.report('UNKNOWN', str(target), 'not readable; inspect as administrator (audit never runs sudo)')
 
     def nautilus(self):
-        self.packages(['nautilus', 'polkit-gnome', 'gvfs', 'gvfs-mtp', 'gvfs-smb'])
+        self.packages(['nautilus', 'polkit-gnome', 'gvfs', 'gvfs-mtp', 'gvfs-smb', 'python', 'inter-font', 'breeze-icons'])
         self.stow('gtk-4.0')
+        self.stow('desktop-theme')
         for schema, key, expected in [
             ('org.gnome.desktop.interface', 'color-scheme', "'prefer-dark'"),
+            ('org.gnome.desktop.interface', 'gtk-theme', "'Atelier'"),
             ('org.gnome.nautilus.preferences', 'default-folder-viewer', "'list-view'"),
             ('org.gnome.nautilus.list-view', 'default-zoom-level', "'small'"),
             ('org.gnome.desktop.wm.preferences', 'button-layout', "''"),
@@ -205,6 +220,75 @@ class Audit:
             ('org.gnome.nautilus.preferences', 'recursive-search', "'local-only'"),
         ]:
             self.value(f'{schema} {key}', ['gsettings', 'get', schema, key], expected)
+
+    def theme(self):
+        result = subprocess.run(['python3', str(self.root / 'scripts/render_theme.py'), '--check'],
+                                capture_output=True, text=True)
+        self.report('OK' if result.returncode == 0 else 'DRIFT', 'generated theme palettes',
+                    '' if result.returncode == 0 else 'run python3 scripts/render_theme.py')
+        for key, expected in [('gtk-theme', "'Atelier'"), ('color-scheme', "'prefer-dark'"),
+                              ('font-name', "'Inter 10'")]:
+            self.value(f'org.gnome.desktop.interface {key}',
+                       ['gsettings', 'get', 'org.gnome.desktop.interface', key], expected)
+        if shutil.which('gsettings'):
+            keys = subprocess.run(['gsettings', 'list-keys', 'org.gnome.desktop.interface'],
+                                  capture_output=True, text=True).stdout.splitlines()
+            if 'accent-color' in keys:
+                self.value('GTK accent', ['gsettings', 'get', 'org.gnome.desktop.interface', 'accent-color'], "'yellow'")
+        # Read JSONC without printing local settings; preserve all unrelated values.
+        spec = importlib.util.spec_from_file_location('apply_theme', self.root / 'scripts/apply_theme.py')
+        theme = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(theme)
+        for path, key, expected in [
+            (self.home / '.config/opencode/cli.json', 'theme', {'name': 'system', 'mode': 'dark'}),
+            (self.home / '.config/Code/User/settings.json', 'workbench.colorTheme', 'Atelier Amber'),
+            (self.home / '.config/zed/settings.json', 'theme', theme.ZED_THEME),
+        ]:
+            if not path.parent.exists():
+                continue
+            try:
+                data = theme.parse_jsonc(path.read_text())
+                self.report('OK' if data.get(key) == expected else 'DRIFT', f'{path}: {key}')
+            except (OSError, ValueError):
+                self.report('DRIFT', str(path), 'missing or invalid settings')
+        for profile in theme.browser_profiles(self.home, self.home / '.config'):
+            self.file(self.root / 'desktop-theme/.local/share/atelier/browser.css',
+                      profile / 'chrome/atelier.css', linked=True)
+            for relative, pattern in [
+                ('chrome/userChrome.css', r'@import url\("atelier\.css"\);'),
+                ('user.js', r'(?m)^[ \t]*user_pref\("toolkit\.legacyUserProfileCustomizations\.stylesheets",[ \t]*true\);'),
+            ]:
+                path = profile / relative
+                try:
+                    self.report('OK' if re.search(pattern, path.read_text()) else 'DRIFT', f'{path}: Atelier hook')
+                except OSError:
+                    self.report('DRIFT', str(path), 'missing or unreadable appearance hook')
+        for package, relative in [
+            ('ghostty', '.config/ghostty/themes/Atelier Amber'),
+            ('ghostty', '.config/ghostty/atelier.css'),
+            ('zed', '.config/zed/themes/atelier-amber.json'),
+            ('fish', '.config/fish/conf.d/00-atelier-palette.fish'),
+            ('claude', '.claude/atelier-palette.sh'),
+        ]:
+            rel = Path(relative)
+            app_directory = self.home / rel.parts[0]
+            if rel.parts[0] == '.config':
+                app_directory /= rel.parts[1]
+            if app_directory.exists():
+                self.file(self.root / package / relative, self.home / relative, linked=True)
+        self.report('UNKNOWN', 'runtime appearance', 'GTK/browser/editor reload and other-machine visuals require a visual check')
+
+    def zed(self):
+        spec = importlib.util.spec_from_file_location('apply_theme_for_zed_audit', self.root / 'scripts/apply_theme.py')
+        theme = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(theme)
+        path = self.home / '.config/zed/settings.json'
+        try:
+            data = theme.parse_jsonc(path.read_text())
+            self.report('OK' if data.get('theme') == theme.ZED_THEME else 'DRIFT', f'{path}: theme')
+        except (OSError, ValueError):
+            self.report('DRIFT', str(path), 'missing or invalid Zed settings')
+        self.value('default text editor', ['xdg-mime', 'query', 'default', 'text/plain'], 'atelier-editor.desktop')
 
     def external(self, item):
         # Installers follow moving upstream branches, not a committed version.
@@ -236,12 +320,13 @@ class Audit:
         for package in stow:
             self.stow(package)
         if item == 'hyprland':
+            self.stow('editor')
             self.stow('hyprland-common')
             if self.machine:
                 self.stow(f'hyprland-{self.machine}')
             else:
                 self.report('UNKNOWN', 'Hyprland profile', 'use --machine mini-mecha or --machine oki-mecha')
-        elif item in ['tty', 'greetd', 'upall', 'nautilus']:
+        elif item in ['tty', 'greetd', 'upall', 'nautilus', 'theme', 'zed']:
             getattr(self, item)()
         elif item == 'pam':
             self.file(self.root / 'pam-setup/etc/pam.d/hyprlock', Path('/etc/pam.d/hyprlock'), mode=0o644, uid=0, gid=0)
@@ -281,7 +366,7 @@ def main():
     print(f'Baseline: current working checkout at {ROOT}')
     print('Only selected expectations are checked; no extra files are deleted or reported as drift.')
     if not args.items or args.items == ['all']:
-        print('[SKIP] Matrix hardware is optional; audit explicitly with ./check-setup.sh matrix')
+        print('[SKIP] Matrix hardware and legacy waybar/wofi/wlogout are opt-in; audit explicitly when used.')
     audit.packages(['stow'])
     for item in dict.fromkeys(items):
         audit.item(item, entries)

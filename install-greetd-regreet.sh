@@ -245,7 +245,18 @@ verify_config() {
 
 # ── Main ──
 main() {
-    info "Catppuccin Tolkien — greetd + ReGreet Installer"
+    if [[ "${1:-}" == "--theme-only" ]]; then
+        # Appearance-only deployment; no PAM, monitor, user, service or DM changes.
+        python3 "$SCRIPT_DIR/scripts/render_theme.py" --check
+        [[ -d "$GREETD_DEST" ]] || error "greetd is not installed; use the full installer first"
+        if [[ -e "$GREETD_DEST/regreet.css" ]]; then
+            sudo cp -a "$GREETD_DEST/regreet.css" "$GREETD_DEST/regreet.css.pre-atelier.$(date +%Y%m%d%H%M%S%N)"
+        fi
+        sudo install -o root -g root -m 644 "$SCRIPT_DIR/greetd-setup/etc/greetd/regreet.css" "$GREETD_DEST/regreet.css"
+        info "Atelier greeter CSS installed. It applies at the next greeter start; your session was not restarted."
+        return
+    fi
+    info "Atelier Amber — greetd + ReGreet Installer"
     echo ""
     check_deps
     validate_source_config

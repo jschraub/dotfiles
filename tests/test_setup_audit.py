@@ -17,6 +17,29 @@ spec.loader.exec_module(module)
 
 
 class SetupAuditTest(unittest.TestCase):
+    def test_theme_audit_detects_missing_browser_hook_without_runtime_writes(self):
+        spec = importlib.util.spec_from_file_location('apply_theme_for_audit', ROOT / 'scripts/apply_theme.py')
+        installer = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(installer)
+        base = self.home / '.config/zen'
+        profile = base / 'test.default'
+        profile.mkdir(parents=True)
+        (base / 'profiles.ini').write_text('[Profile0]\nPath=test.default\nIsRelative=1\n')
+        installer.apply(self.home)
+        audit = module.Audit(root=ROOT, home=self.home)
+        with patch.object(audit, 'value'), patch.object(module.subprocess, 'run') as run:
+            run.return_value.returncode = 0
+            run.return_value.stdout = 'accent-color\n'
+            audit.theme()
+        self.assertEqual(audit.counts['DRIFT'], 0)
+        (profile / 'chrome/userChrome.css').write_text('/* lost import */\n')
+        audit = module.Audit(root=ROOT, home=self.home)
+        with patch.object(audit, 'value'), patch.object(module.subprocess, 'run') as run:
+            run.return_value.returncode = 0
+            run.return_value.stdout = 'accent-color\n'
+            audit.theme()
+        self.assertEqual(audit.counts['DRIFT'], 1)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -90,7 +113,7 @@ class SetupAuditTest(unittest.TestCase):
     def test_registry_can_be_read_without_running_installers(self):
         entries = module.registry(ROOT)
         self.assertIn('fish', entries)
-        self.assertEqual(entries['fish'][1], ['fish'])
+        self.assertEqual(entries['fish'][1], ['editor', 'fish'])
         self.assertIn('tty', entries)
         self.assertTrue(entries['matrix'][2])
 
@@ -117,6 +140,13 @@ class SetupAuditTest(unittest.TestCase):
                     [], 1, '', 'error: could not open database')):
             self.audit.packages(['fish'])
         self.assertEqual(self.audit.counts, {'UNKNOWN': 1})
+
+    def test_versioned_dependency_uses_pacman_dependency_query(self):
+        with patch.object(module.shutil, 'which', return_value='/usr/bin/pacman'), \
+                patch.object(module.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, '', '')) as run:
+            self.audit.packages(['quickshell>=0.3.2'])
+        self.assertEqual(run.call_args.args[0], ['pacman', '-T', 'quickshell>=0.3.2'])
+        self.assertEqual(self.audit.counts, {'OK': 1})
 
     def test_system_copy_does_not_accept_symlink_or_wrong_group(self):
         self.target.symlink_to(self.source)
