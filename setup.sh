@@ -14,6 +14,7 @@
 #   ./setup.sh hyprland fish   # named items, no prompt
 #   ./setup.sh --list          # print items and exit
 #   ./setup.sh --dry-run ...   # show the plan without changing anything
+#   ./check-setup.sh ...       # read-only comparison with the current checkout
 #
 # Hyprland is machine-specific: it stows hyprland-common plus exactly one of the
 # per-machine profiles. The profile is auto-picked from $HOSTNAME (mini-mecha /
@@ -334,4 +335,6 @@ main() {
     return 0
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi
