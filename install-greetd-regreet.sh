@@ -21,6 +21,7 @@ check_deps() {
     command -v greetd >/dev/null 2>&1   || missing+=("greetd")
     command -v regreet >/dev/null 2>&1   || missing+=("greetd-regreet")
     command -v start-hyprland >/dev/null 2>&1 || missing+=("hyprland")
+    command -v Hyprland >/dev/null 2>&1 || missing+=("hyprland")
     command -v dbus-run-session >/dev/null 2>&1 || missing+=("dbus")
 
     local fonts
@@ -41,17 +42,36 @@ check_deps() {
     info "All dependencies satisfied"
 }
 
+# Validate before overwriting a working greeter. File existence alone does not
+# catch an old hyprlang config being fed to Hyprland's Lua parser.
+validate_source_config() {
+    grep -Fxq 'command = "dbus-run-session start-hyprland -- -c /etc/greetd/hyprland.lua"' \
+        "$GREETD_SRC/config.toml" || error "greetd must launch /etc/greetd/hyprland.lua"
+    Hyprland --verify-config -c "$GREETD_SRC/hyprland.lua" \
+        || error "Greeter Lua config failed validation; existing configuration was not changed"
+}
+
 # ── Install greeter configs ──
 install_configs() {
     info "Installing greetd + ReGreet configuration..."
 
-    # greetd config
+    # Preserve local settings, and install the launch command LAST so it cannot
+    # point at a Lua file that has not yet been copied. Back up only changed files.
     sudo mkdir -p "$GREETD_DEST"
-    sudo cp "$GREETD_SRC/config.toml"    "$GREETD_DEST/config.toml"
-    sudo cp "$GREETD_SRC/regreet.toml"   "$GREETD_DEST/regreet.toml"
-    sudo cp "$GREETD_SRC/regreet.css"    "$GREETD_DEST/regreet.css"
-    sudo cp "$GREETD_SRC/hyprland.lua"  "$GREETD_DEST/hyprland.lua"
-    sudo chmod 644 "$GREETD_DEST"/*.toml "$GREETD_DEST"/*.css "$GREETD_DEST"/hyprland.lua
+    local file mode stamp
+    stamp="$(date +%Y%m%d%H%M%S%N)"
+    for file in hyprland.lua regreet.toml regreet.css config.toml; do
+        if sudo test -e "$GREETD_DEST/$file" && \
+            ! sudo cmp -s "$GREETD_SRC/$file" "$GREETD_DEST/$file"; then
+            sudo cp -a "$GREETD_DEST/$file" "$GREETD_DEST/$file.pre-lua.$stamp"
+        fi
+        mode=644
+        [[ "$file" != config.toml ]] || mode=640
+        sudo install -m "$mode" "$GREETD_SRC/$file" "$GREETD_DEST/$file"
+    done
+    if [[ -f "$GREETD_DEST/hyprland.conf" ]]; then
+        warn "Legacy hyprland.conf is unused; leaving it in place for recovery"
+    fi
     info "Config files installed to $GREETD_DEST"
 
     # PAM config for greeter session (required — without this PAM denies the greeter)
@@ -190,6 +210,14 @@ verify_config() {
         ok=false
     fi
 
+    if ! sudo grep -Fxq 'command = "dbus-run-session start-hyprland -- -c /etc/greetd/hyprland.lua"' \
+        "$GREETD_DEST/config.toml"; then
+        error "Installed greetd command does not use the Lua greeter config; greetd will not be enabled"
+    fi
+    if ! Hyprland --verify-config -c "$GREETD_DEST/hyprland.lua"; then
+        error "Installed Hyprland greeter config failed validation; greetd will not be enabled"
+    fi
+
     if [[ ! -f "$PAM_DEST" ]]; then
         warn "PAM config for greetd-greeter not found at $PAM_DEST"
         ok=false
@@ -217,10 +245,11 @@ main() {
     info "Catppuccin Tolkien — greetd + ReGreet Installer"
     echo ""
     check_deps
+    validate_source_config
     install_configs
     setup_greeter_user
-    enable_greetd
     verify_config
+    enable_greetd
     echo ""
     info "Done! greetd + ReGreet is configured."
     if [[ -f "$GREETD_DEST/.previous-dm" ]]; then
@@ -231,4 +260,6 @@ main() {
     info "Reboot to see your new greeter."
 }
 
-main
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi
