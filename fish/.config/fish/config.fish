@@ -12,7 +12,7 @@ end
 
 # Interactive-only setup. Kept out of non-interactive shells so Tide's prompt
 # subshell (a `fish -c`, which re-sources this file) stays fast — otherwise these
-# (notably the secret-tool keyring lookups, ~70ms) would run on every prompt.
+# interactive integrations would run on every prompt.
 # Exported vars set here are inherited by that subshell, so nothing is lost.
 if status is-interactive
     # fzf key bindings
@@ -26,9 +26,11 @@ if status is-interactive
     # node version manager (adds a cd hook)
     fnm env --use-on-cd | source
 
-    # Secrets from GNOME Keyring - no plaintext on disk.
-    # Store with: secret-tool store --label="GitHub PAT" service github key pat
-    set -gx GH_TOKEN (secret-tool lookup service github key pat 2>/dev/null)
+    # Do not export the GitHub PAT globally: GH_TOKEN takes precedence over
+    # gh's saved OAuth credential and this PAT is limited to only five repos.
+    # The keyring secret remains available for tools that explicitly need it.
+    set -e GH_TOKEN
+    set -e GITHUB_TOKEN
 end
 
 # After CachyOS aliases and Tide: console-only overrides, never GUI terminals.
