@@ -40,19 +40,20 @@ local editor      = "~/.local/bin/desktop-editor"
 ---- AUTOSTART ----
 -------------------
 
--- Reconciles the internal panel against the real lid state (and, in legacy mode,
--- rebuilds Waybar's per-output bars). See the script header for why lid binds cannot be
+-- Reconciles the internal panel against the real lid state.
+-- See the script header for why lid binds cannot be
 -- correct. Referenced from the binds, the monitor.added hook, and hypridle.
 local lidDisplay = "~/.config/hypr/scripts/lid-display.sh"
 
 hl.on("hyprland.start", function()
-    hl.exec_cmd("/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1")
+    hl.exec_cmd("~/.local/bin/desktop-polkit start")
+    hl.exec_cmd("hyprctl setcursor Bibata-Modern-Amber 24")
     hl.exec_cmd("gnome-keyring-daemon --start --components=secrets,pkcs11")
     -- Keep idle/sleep evidence across reboots. Without systemd-cat, programs
     -- spawned here inherit /dev/null and their diagnostics are lost.
-    hl.exec_cmd("hyprpaper --config \"${ATELIER_WALLPAPER_CONFIG:-$HOME/.config/hypr/hyprpaper.conf}\" & systemd-cat --identifier=hypridle --level-prefix=false hypridle")
+    hl.exec_cmd("systemd-cat --identifier=hypridle --level-prefix=false hypridle")
     hl.exec_cmd("sleep 1 && ~/.local/bin/desktop-shell start")
-    -- Well after waybar and after the compositor has settled: catches a session
+    -- After the compositor has settled: catches a session
     -- that started with the lid already shut, which fires no switch event. The
     -- delay must clear the script's own startup guard (see lid-display.sh).
     hl.exec_cmd("sleep 12 && " .. lidDisplay)
@@ -60,7 +61,7 @@ end)
 
 -- An output appearing is the one moment we know the monitor set changed: re-apply
 -- the lid rule (a resume can bring the panel back with the lid still shut) and
--- rebuild the bars. The script is edge-triggered internally, so this cannot loop.
+-- reconcile the panel. Atelier follows output changes without bar reloads.
 --
 -- These fire once per output during startup too. The script refuses to touch a
 -- monitor in the session's first seconds, which matters: libaquamarine segfaults
@@ -76,6 +77,7 @@ end)
 ---- ENVIRONMENT VARIABLES ----
 -------------------------------
 
+hl.env("XCURSOR_THEME", "Bibata-Modern-Amber")
 hl.env("XCURSOR_SIZE", "24")
 hl.env("HYPRCURSOR_SIZE", "24")
 hl.env("EDITOR", (os.getenv("HOME") or "") .. "/.local/bin/desktop-editor --wait")
@@ -262,12 +264,12 @@ hl.bind("SHIFT + Print",       hl.dsp.exec_cmd("~/.local/bin/screenshot.sh activ
 hl.bind(mainMod .. " + Print", hl.dsp.exec_cmd("~/.local/bin/screenshot.sh output"), { description = "Screenshot focused monitor (save + clipboard)" })
 
 -- Multimedia keys (locked = active even on lockscreen, repeating = key-repeat)
-hl.bind("XF86AudioRaiseVolume",  hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"), { locked = true, repeating = true, description = "Raise volume 5%" })
-hl.bind("XF86AudioLowerVolume",  hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"),      { locked = true, repeating = true, description = "Lower volume 5%" })
-hl.bind("XF86AudioMute",         hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"),     { locked = true, repeating = true, description = "Toggle speaker mute" })
-hl.bind("XF86AudioMicMute",      hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"),   { locked = true, repeating = true, description = "Toggle microphone mute" })
-hl.bind("XF86MonBrightnessUp",   hl.dsp.exec_cmd("brightnessctl -e4 -n2 set 5%+"),                  { locked = true, repeating = true, description = "Raise screen brightness 5%" })
-hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("brightnessctl -e4 -n2 set 5%-"),                  { locked = true, repeating = true, description = "Lower screen brightness 5%" })
+hl.bind("XF86AudioRaiseVolume",  hl.dsp.exec_cmd("~/.local/bin/desktop-control volume-up"),       { locked = true, repeating = true, description = "Raise volume 5%" })
+hl.bind("XF86AudioLowerVolume",  hl.dsp.exec_cmd("~/.local/bin/desktop-control volume-down"),     { locked = true, repeating = true, description = "Lower volume 5%" })
+hl.bind("XF86AudioMute",         hl.dsp.exec_cmd("~/.local/bin/desktop-control volume-mute"),     { locked = true, repeating = true, description = "Toggle speaker mute" })
+hl.bind("XF86AudioMicMute",      hl.dsp.exec_cmd("~/.local/bin/desktop-control mic-mute"),        { locked = true, repeating = true, description = "Toggle microphone mute" })
+hl.bind("XF86MonBrightnessUp",   hl.dsp.exec_cmd("~/.local/bin/desktop-control brightness-up"),   { locked = true, repeating = true, description = "Raise screen brightness 5%" })
+hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("~/.local/bin/desktop-control brightness-down"), { locked = true, repeating = true, description = "Lower screen brightness 5%" })
 
 -- playerctl media keys
 hl.bind("XF86AudioNext",  hl.dsp.exec_cmd("playerctl next"),       { locked = true, description = "Next media track" })

@@ -13,6 +13,7 @@ ShellRoot {
     property string panel: ""
     property string message: ""
     property bool networkBusy: false
+    property var desktopServices: services.item
     property var chosenScreen: null
     property var menuScreen: chosenScreen && Quickshell.screens.indexOf(chosenScreen) >= 0
                              ? chosenScreen : focusedScreen()
@@ -48,6 +49,7 @@ ShellRoot {
             case "bindings": bindings = event.data; break;
             case "networks": networks = event.data; break;
             case "notice": message = event.data; break;
+            case "osd": if (root.panel !== "audio") osd.show(event.data.kind, event.data.percent, event.data.muted); break;
             case "result":
                 if (["connect", "rescan", "wifi", "vpn"].includes(event.data.action)) networkBusy = false;
                 if (!event.data.ok) message = event.data.message;
@@ -63,7 +65,17 @@ ShellRoot {
     IpcHandler {
         target: "shell"
         function toggle(name: string): void {
-            if (["launcher", "bindings", "audio", "network", "calendar", "notifications", "power"].includes(name)) root.open(name);
+            if (["launcher", "bindings", "audio", "audioDevices", "bluetooth", "media", "tray", "network", "calendar", "notifications", "power"].includes(name)) root.open(name);
+        }
+        function showOsd(kind: string, percent: int, muted: bool): void { osd.show(kind, percent, muted); }
+        function wallpaperReady(): bool {
+            return backgrounds.instances.length > 0 && Array.from(backgrounds.instances).every(w => w.ready);
+        }
+        function features(): string {
+            return JSON.stringify({ services: !!root.desktopServices, outputs: root.desktopServices ? root.desktopServices.outputs.length : 0,
+                inputs: root.desktopServices ? root.desktopServices.inputs.length : 0, players: root.desktopServices ? root.desktopServices.players.length : 0,
+                trayItems: root.desktopServices ? root.desktopServices.trayItems.length : 0,
+                wallpaper: backgrounds.instances.length > 0 && Array.from(backgrounds.instances).every(w => w.ready) });
         }
         function close(): void { root.close(); }
         function health(): string { return root.ready ? "ready" : "starting"; }
@@ -100,6 +112,13 @@ ShellRoot {
         }
     }
     MenuWindow { id: menu; shell: root }
+    Osd { id: osd; shell: root }
+    Loader { id: services; active: !root.testing && !root.preview; sourceComponent: Component { DesktopServices {} } }
+    Variants {
+        id: backgrounds
+        model: root.preview || root.testing || !root.state.wallpaper ? [] : Quickshell.screens
+        Wallpaper { required property var modelData; screen: modelData; path: root.state.wallpaper || "" }
+    }
     Loader {
         id: notifications
         active: !root.preview && !root.testing

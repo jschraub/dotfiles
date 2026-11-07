@@ -21,60 +21,53 @@ keep-awake, DND/notifications, charging and low battery. Cast lives in the
 Connectivity panel rather than taking permanent bar space. Bluetooth also lives
 there, with on/off/connected status and access to its full device manager.
 
-## Install, preview, activate
+## Install and start
 
 Run from this checkout, as your normal user:
 
 ```sh
 ./setup.sh quickshell
-desktop-shell preview
+desktop-shell start
 ```
 
 Installation asks for package-manager authorization and stows the shared helpers
-and Quickshell configuration. It **does not activate** the replacement desktop or
-uninstall anything. It also installs Inter and a desktop-entry terminal helper;
+and Quickshell configuration. It does not restart the live desktop or uninstall
+anything. Atelier is now the only desktop UI and starts at the next Hyprland login.
+It also installs Inter and a desktop-entry terminal helper;
 the stowed `~/.config/xdg-terminals.list` selects Ghostty for terminal apps.
 Existing conflicting real files are backed up by the normal setup machinery.
 
-Preview adds a temporary **bottom** bar, leaves Waybar/SwayNC running, and does not
-claim the notification service. Click its Applications button, then **Keyboard
-shortcuts** in the launcher footer to inspect the new reference. Preview controls
-use real system state and actions, not mock data. Quit the preview from its
-terminal with Ctrl+C before activating. Your global shortcuts still use the
-selected desktop until cutover.
-
-When ready:
-
-```sh
-desktop-shell activate
-hyprctl reload
-```
-
-Activation temporarily runtime-masks SwayNC's user service to prevent D-Bus clients
-from reactivating it, stops SwayNC, starts Atelier, checks backend readiness and notification
-service ownership, then stops Waybar and saves `quickshell` in
-`~/.config/dotfiles/desktop-shell`. Failure restores legacy mode and attempts to
-restart the old services. Ownership checks use non-activating D-Bus calls and allow
-the new server time to acquire its name. SwayNC's in-memory notification history is not migrated.
+`desktop-shell start` (also `activate`) is idempotent: it preserves a healthy live
+shell, starts a missing one, and checks notification ownership without D-Bus
+activation. Failure reports an error; there is no alternate desktop. Menu shortcuts
+attempt native recovery if the shell has crashed. `desktop-shell preview` is only
+available when no Atelier instance is running and does not claim notifications;
+its controls still perform real actions. Quit preview with Ctrl+C before starting.
 The real bar is at the **top**; utility panels open consistently underneath its
 right edge on the clicked output. Launchers/reference/power panels open centered
 on the focused or clicked output. Menus dismiss with Escape or an outside click.
 
-Rollback (keep the old packages installed during rollout):
+## Retire the previous desktop
+
+After validating the native desktop on each machine, run from a terminal:
 
 ```sh
-desktop-shell legacy
-hyprctl reload
+./scripts/cleanup-atelier.sh
 ```
 
-This stops only the Atelier configuration, restarts Waybar/SwayNC if available,
-and routes shortcuts back to Wofi/wlogout. It does not uninstall Quickshell.
-It removes only Atelier's own runtime mask; persistent enablement and pre-existing
-user masks are not changed. The runtime guard is recreated at login in Quickshell
-mode and is removed again if activation fails.
-Legacy installers remain available explicitly: `./setup.sh waybar wofi wlogout`.
-They are no longer included by `./setup.sh all`. A fresh installation that never
-installed legacy packages cannot roll back to programs it does not have.
+The three-stage wizard checks shell/wallpaper/authentication/notification health,
+previews and confirms removal of **Waybar, SwayNC, Wofi, wlogout, Fuzzel, Hyprpaper
+and polkit-gnome**, then removes only this checkout's retired symlinks and owned
+runtime mask. Pacman uses `-R`, never recursive dependency/orphan removal or
+dependency bypass. Sudo reads the password directly in your terminal. Foreign
+links, real configs, persistent service policy and core backends are preserved.
+On another machine, update/stow the new setup and start a fresh session first so
+the native-only polkit supervisor has replaced the old fallback supervisor.
+The old setup entries, UI assets, rollback mode and fallback watchers are retired.
+
+**Retained, not fallbacks:** Blueman supplies pairing/PIN dialogs; pavucontrol
+supplies per-app routing, profiles and ports; gnome-network-displays supplies
+casting. Removing them would remove features that Atelier still delegates.
 
 ## Controls and parity
 
@@ -86,13 +79,16 @@ installed legacy packages cannot roll back to programs it does not have.
 | Volume in the bar | Always-visible volume/mute state; hovering and scrolling adjusts five percentage points per notch; click opens the 0–100% slider and mute. Scrolling the slider uses the same steps; right-click or Advanced opens pavucontrol. Unavailable state is explicit. |
 | Network | Wi-Fi/Ethernet connection/IP, cached SSID list, signal/security/saved state, rescan, Wi-Fi on/off, masked password entry, captive-portal sign-in, advanced nmtui. Height follows content rather than filling a large empty panel. |
 | VPN | Protected indicator when active; launching Proton dismisses Connectivity and the app remains responsible for Proton connections. Ordinary persistent NM VPNs can be connected/disconnected in place when Proton is absent. |
-| Bluetooth (inside Connectivity) | On/off/connected status; connected device names/battery when available in tooltip; click opens the existing full Blueman manager. |
+| Audio devices & microphone | Native PipeWire discovery and default output/input selection, microphone volume/mute; advanced routing remains in pavucontrol. |
+| Bluetooth (inside Connectivity) | Adapter on/off, discovery with owned-scan cleanup, paired-device connections and battery/status. Advanced / Pair opens Blueman for pairing/PIN workflows; never auto-pairs/trusts devices. |
+| Media & tray | Native MPRIS playback/player controls and StatusNotifier activation/nested DBusMenu menus. Bar controls appear only when players/items exist. |
+| Hardware keys / OSD | Volume/microphone/brightness helpers work without the shell; OSDs appear only after explicit controls, never polling or automatic idle dimming. |
 | Cast (inside Connectivity) | Launches gnome-network-displays with the existing AMD VA-API override. |
 | Keep-awake cup | Reuses the session-scoped logind inhibitor; survives shell reload/restart and permits manual suspend. |
 | Battery | Capacity, charging state and critical color when a battery exists; hidden on desktops without batteries. |
 | Clock | Date/time and month calendar with navigation, selection and Today. Compact clock/network labels on narrower outputs. |
 | Notifications | Top-right toasts, notification center/history, actions, images, replacement IDs, expiration, transient notifications, clear/dismiss and DND. Bell is outlined with empty history, filled when history has notifications, and crossed out in DND. Right-click toggles DND; critical notifications bypass it. |
-| Super+Delete / power button | Lock receives initial keyboard focus. Arrow keys navigate the 2×2 grid; Tab cycles and Enter/Space activates. Visible L/E/R/S shortcuts select lock/logout/restart/shutdown. Escape closes. Disruptive choices require confirmation with Cancel initially focused; arrows/Tab move to Confirm. The panel expands for confirmation. Lock still calls the shared Hyprlock wrapper; logout restores displays before ending the session. |
+| Super+Delete / power button | Lock receives initial keyboard focus. Arrow keys navigate the 2×2 grid; Tab cycles and Enter/Space activates. Green L/E/R/S shortcuts immediately run lock/logout/restart/shutdown and close the menu, with no confirmation step. Escape closes without acting. Lock still calls the shared Hyprlock wrapper; logout restores displays before ending the session. |
 
 Notification history is bounded to 100 entries and is in memory for the running
 shell. Active notifications survive QML reload through Quickshell's tracking;
@@ -102,19 +98,29 @@ advertised. Notification text is rendered as plain text.
 
 ## What remains unchanged
 
+Native login/locking replacements are available through the explicit staged
+[Atelier access-screen migration](atelier-access.md). They are not activated by
+desktop-shell cleanup or ordinary Quickshell setup.
+
 Hyprland and its machine-specific GPU/monitor rules, Hypridle, Hyprlock/PAM and
-optional fingerprint handling, Hyprpaper/wallpaper, polkit, gnome-keyring,
+optional fingerprint handling, the polkit service, gnome-keyring,
 NetworkManager/Proton, BlueZ, PipeWire/WirePlumber, screenshots, portals, Miracast,
 greetd/ReGreet, terminals and file manager remain in place. No root-owned
 authentication, greeter, idle/suspend or networking policies are replaced.
 
+Quickshell renders each machine's configured wallpaper only after decoding the
+image; Hyprpaper and its watcher are removed. See [wallpapers](wallpapers.md).
+Native authentication runs in a separate `auth.qml` process. `desktop-polkit`
+restarts crashed/unregistered native agents, with no GNOME-agent fallback.
+Responses go directly to polkit, never backend, argv, IPC or logs. Authentication
+fails closed while the agent is unavailable. There is no password-response IPC.
+
 `lid-display.sh` keeps its real lid/DRM reconciliation, startup safety guard and
-greeter handoff. Only its **Waybar reload section** is skipped in Quickshell mode;
-the new bars respond to `Quickshell.screens` without restarting the whole shell.
+greeter handoff. The obsolete Waybar reload section is removed; Atelier follows
+`Quickshell.screens` without restarting the shell.
 
 The inhibitor now lives at `~/.local/bin/dotfiles-keep-awake.sh`, provided by
-`hyprland-common`, independent of the legacy Waybar Stow package. Its old entry
-point delegates to the shared backend for rollback compatibility.
+`hyprland-common`, independent of the shell process.
 
 ## Structure and maintenance
 
@@ -132,9 +138,11 @@ point delegates to the shared backend for rollback compatibility.
   wpctl and the existing inhibitor. Hyprland socket events update focus/workspaces
   promptly; slower system status is refreshed separately on a two-second cadence
   and after control actions. Passwords pass over stdin, never argv or logs.
-- `hyprland-common/.local/bin/desktop-shell`: lifecycle, health-checked cutover,
-  explicit mode selection and rollback. It also recovers a crashed shell when a
-  menu shortcut is next used, falling back to legacy if recovery fails.
+- `DesktopServices.qml`: native PipeWire, BlueZ, MPRIS and tray discovery.
+- `hyprland-common/.local/bin/desktop-shell`: idempotent native lifecycle and
+  menu-triggered recovery; startup failures are explicit.
+- `desktop-polkit`: session-locked native agent supervision and registration checks.
+- `desktop-control`: serialized hardware-key actions and manual-only OSD events.
 
 Dependencies are declared under `quickshell` in `setup.sh`; a versioned package
 check requires Quickshell >=0.3.2. NetworkManager/BlueZ must already be configured
@@ -150,8 +158,7 @@ qs log -c atelier
 ./check-setup.sh quickshell hyprland
 ```
 
-The audit checks files/packages, not whether the shell is activated. Selecting
-legacy during staged rollout is intentional, not something setup auto-repairs.
+The audit checks files/packages, not live feature or hardware behavior.
 After changing QML, Quickshell reloads it automatically. Backend restarts are
 shell-owned; the keep-awake inhibitor is deliberately not shell-owned.
 
@@ -178,17 +185,12 @@ precision deltas, touchpad-delta accumulation, slider input geometry, click-thro
 and dragging without touching real audio. Backend tests separately cover relative
 `wpctl` commands, ordered audio execution and draining work before adapter shutdown.
 
-Verified on oki-mecha with Quickshell 0.3.2: component loading, bar/menu rendering,
-all menu IPC entry points, backend read-only data, notification protocol behavior,
-mocked control/security/lifecycle cases, and a live cutover from D-Bus-activated
-SwayNC to Quickshell with notification ownership verified. The handoff regression
-covers managed-service reactivation, failed startup, rollback, and foreign masks.
-**Not yet hardware-validated**:
-mini-mecha, multi-output/scaling/hotplug, lid/suspend/resume, real Wi-Fi password
-failure/retry, Bluetooth device batteries, or app launch variety. Keep the rollback
-path until those are exercised.
-The existing password/lock flow is deliberately unchanged and was not locked or
-suspended during automated testing.
+Automated coverage includes fake-device audio/Bluetooth/auth controls, native
+MPRIS/tray/nested-menu integration on a private bus, wallpaper readiness, native
+agent retry and retirement ownership checks. Native polkit cancellation has also
+been exercised live without credentials or privileged execution. The user approved
+the manual spot-check list before retirement; automation does not change real
+volume/pairing/power state. Validate a fresh login after cleanup on each machine.
 
 One tested API edge: v0.3.2's `Notification.expireTimeout` returns protocol
 **milliseconds**, despite its online documentation saying seconds. The private

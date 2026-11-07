@@ -150,8 +150,9 @@ class AtelierGuiTest(unittest.TestCase):
                                  if item["name"] == "notifications-control")
                     self.assertEqual(entry["text"], icon, (count, dnd, entry))
                     self.assertEqual(entry["selected"], dnd or count > 0)
-                for name, action, target in [("bluetooth-action", "open", "bluetooth"),
-                                             ("cast-action", "open", "cast"), ("proton-vpn-action", "vpn", "")]:
+                self.assertEqual(ipc("invokeMenu", "bluetooth-action").returncode, 0)
+                self.assertEqual(json.loads(ipc("status").stdout)["panel"], "bluetooth")
+                for name, action, target in [("cast-action", "open", "cast"), ("proton-vpn-action", "vpn", "")]:
                     self.assertEqual(ipc("invokeMenu", name).returncode, 0)
                     state = json.loads(ipc("status").stdout)
                     self.assertEqual((state["lastAction"], state["lastTarget"]), (action, target))
@@ -228,7 +229,7 @@ class AtelierGuiTest(unittest.TestCase):
                     time.sleep(0.1)
                 self.assertIsNone(process.poll(), "QML did not load")
                 self.assertEqual(ipc("health").stdout.strip(), "ready")
-                for name in ["launcher", "bindings", "audio", "calendar", "network", "notifications", "power"]:
+                for name in ["launcher", "bindings", "audio", "audioDevices", "bluetooth", "media", "tray", "calendar", "network", "notifications", "power"]:
                     with self.subTest(panel=name):
                         self.assertEqual(ipc("toggle", name).returncode, 0)
                         time.sleep(0.4)

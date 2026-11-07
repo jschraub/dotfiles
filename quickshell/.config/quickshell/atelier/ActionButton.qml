@@ -7,6 +7,7 @@ Controls.AbstractButton {
     property bool selected: false
     property bool dangerous: false
     property string hint: ""
+    property string hintShortcut: ""
     property bool alignLeft: false
     property color textColor: Theme.text
     property bool tabularDigits: false
@@ -19,6 +20,7 @@ Controls.AbstractButton {
     }
     onHoveredChanged: updateHint()
     onHintChanged: updateHint()
+    onHintShortcutChanged: updateHint()
     onEnabledChanged: updateHint()
     onPressedChanged: updateHint()
     Timer { id: hintDelay; interval: 600; onTriggered: root.hintReady = true }
@@ -28,8 +30,8 @@ Controls.AbstractButton {
     focusPolicy: Qt.StrongFocus
     background: Rectangle {
         radius: 7
-        color: root.down ? Theme.hover : root.hovered || root.selected || root.activeFocus ? Theme.raised : "transparent"
-        border.width: root.activeFocus ? 1 : 0
+        color: root.down ? Theme.hover : root.hovered || root.selected || root.visualFocus ? Theme.raised : "transparent"
+        border.width: root.visualFocus ? 1 : 0
         border.color: Theme.accent
         Behavior on color { ColorAnimation { duration: 100 } }
     }
@@ -70,18 +72,37 @@ Controls.AbstractButton {
         anchor.adjustment: PopupAdjustment.SlideX | PopupAdjustment.FlipY
         grabFocus: false
         visible: root.hintReady && root.hovered && root.enabled && !root.pressed && root.hint.length > 0
-        implicitWidth: Math.min(360, hintText.implicitWidth + 24)
+        implicitWidth: Math.min(360, hintMeasure.implicitWidth + (root.hintShortcut ? shortcutText.implicitWidth + 8 : 0) + 24)
         implicitHeight: hintText.implicitHeight + 16
         color: "transparent"
+        // Measure unconstrained text, not the wrapped label whose width depends
+        // on this popup. Otherwise multiline hints can shrink and wrap early.
+        Label {
+            id: hintMeasure
+            visible: false
+            text: root.hint
+            font.pixelSize: 12
+            wrapMode: Text.NoWrap
+            elide: Text.ElideNone
+        }
         Rectangle { anchors.fill: parent; color: Theme.panel; radius: 7; border.color: Theme.line }
         Label {
             id: hintText
             x: 12; y: 8
-            width: tooltip.width - 24
+            width: tooltip.width - 24 - (root.hintShortcut ? shortcutText.implicitWidth + 8 : 0)
             text: root.hint
             font.pixelSize: 12
             wrapMode: Text.WordWrap
             elide: Text.ElideNone
+            textFormat: Text.PlainText
+        }
+        Label {
+            id: shortcutText
+            anchors { right: parent.right; rightMargin: 12; verticalCenter: parent.verticalCenter }
+            visible: !!root.hintShortcut
+            text: root.hintShortcut
+            textFormat: Text.PlainText
+            font.pixelSize: 12; color: Theme.good
         }
     }
     Accessible.name: text

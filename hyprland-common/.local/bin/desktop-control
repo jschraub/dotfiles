@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Hardware keys work even when Atelier is stopped. OSD is explicit/manual only:
+# Hypridle's automatic dim/restore never invokes this helper.
+set -euo pipefail
+runtime="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+exec 9>"$runtime/dotfiles-desktop-control.lock"
+flock 9
+target='@DEFAULT_AUDIO_SINK@'
+kind=volume
+case "${1:-}" in
+    volume-up) wpctl set-volume -l 1 "$target" 5%+ ;;
+    volume-down) wpctl set-volume -l 1 "$target" 5%- ;;
+    volume-mute) wpctl set-mute "$target" toggle ;;
+    mic-mute) target='@DEFAULT_AUDIO_SOURCE@'; kind=microphone; wpctl set-mute "$target" toggle ;;
+    brightness-up) kind=brightness; brightnessctl -q -c backlight -e4 -n2 set 5%+ ;;
+    brightness-down) kind=brightness; brightnessctl -q -c backlight -e4 -n2 set 5%- ;;
+    *) echo 'Usage: desktop-control volume-up|volume-down|volume-mute|mic-mute|brightness-up|brightness-down' >&2; exit 2 ;;
+esac
+if [[ "$kind" == brightness ]]; then
+    percent="$(brightnessctl -c backlight -m | awk -F, 'NR==1 { gsub(/%/,"",$4); print $4 }')"
+    muted=false
+else
+    read -r percent muted < <(wpctl get-volume "$target" | awk '{v=int($2*100+0.5); if(v>100)v=100; print v, ($0 ~ /MUTED/ ? "true" : "false")}')
+fi
+[[ "$percent" =~ ^[0-9]+$ ]] || exit 0
+if command -v "${ATELIER_QS_BINARY:-qs}" >/dev/null; then
+    timeout 1 "${ATELIER_QS_BINARY:-qs}" ipc -c atelier call shell showOsd "$kind" "$percent" "$muted" >/dev/null 2>&1 || true
+fi

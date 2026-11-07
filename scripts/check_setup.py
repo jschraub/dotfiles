@@ -84,19 +84,6 @@ class Audit:
             self.report('UNKNOWN', 'packages', 'pacman unavailable')
             return
         for package in packages:
-            if package == 'waybar>=0.16.0':
-                git = subprocess.run(['pacman', '-Q', 'waybar-git'], capture_output=True)
-                if git.returncode == 0:
-                    self.report('OK', 'Waybar Git fallback', 'rolling build; stable replacement uses setup-waybar.sh')
-                    continue
-                result = subprocess.run(['pacman', '-T', package], capture_output=True, text=True)
-                if result.returncode == 0:
-                    self.report('OK', f'package {package}')
-                elif result.returncode == 127 and package in result.stdout.splitlines():
-                    self.report('DRIFT', 'Waybar Lua support', 'requires stable >=0.16.0 or waybar-git; run ./setup-waybar.sh')
-                else:
-                    self.report('UNKNOWN', 'Waybar Lua support', 'dependency query failed')
-                continue
             if re.search(r'[<>=]', package):
                 result = subprocess.run(['pacman', '-T', package], capture_output=True, text=True)
                 if result.returncode == 0:
@@ -206,7 +193,7 @@ class Audit:
             self.report('UNKNOWN', str(target), 'not readable; inspect as administrator (audit never runs sudo)')
 
     def nautilus(self):
-        self.packages(['nautilus', 'polkit-gnome', 'gvfs', 'gvfs-mtp', 'gvfs-smb', 'python', 'inter-font', 'breeze-icons'])
+        self.packages(['nautilus', 'polkit', 'gvfs', 'gvfs-mtp', 'gvfs-smb', 'python', 'inter-font', 'breeze-icons'])
         self.stow('gtk-4.0')
         self.stow('desktop-theme')
         for schema, key, expected in [
@@ -227,9 +214,14 @@ class Audit:
         self.report('OK' if result.returncode == 0 else 'DRIFT', 'generated theme palettes',
                     '' if result.returncode == 0 else 'run python3 scripts/render_theme.py')
         for key, expected in [('gtk-theme', "'Atelier'"), ('color-scheme', "'prefer-dark'"),
-                              ('font-name', "'Inter 10'")]:
+                              ('font-name', "'Inter 10'"), ('cursor-theme', "'Bibata-Modern-Amber'"),
+                              ('cursor-size', '24')]:
             self.value(f'org.gnome.desktop.interface {key}',
                        ['gsettings', 'get', 'org.gnome.desktop.interface', key], expected)
+        data = Path(os.environ.get('XDG_DATA_HOME') or self.home / '.local/share')
+        pointer = data / 'icons/Bibata-Modern-Amber/cursors/left_ptr'
+        self.report('OK' if pointer.is_file() else 'DRIFT', 'Bibata Modern Amber cursor assets',
+                    '' if pointer.is_file() else 'run python3 scripts/install_cursor.py')
         if shutil.which('gsettings'):
             keys = subprocess.run(['gsettings', 'list-keys', 'org.gnome.desktop.interface'],
                                   capture_output=True, text=True).stdout.splitlines()
@@ -313,9 +305,39 @@ class Audit:
                 self.report('UNKNOWN', str(target), 'cannot inspect checkout')
         self.report('UNKNOWN', item, 'upstream version and delegated installation are not pinned/audited; no network access')
 
+    def access(self):
+        for directory in ('/etc/atelier', '/etc/atelier/access', '/usr/share/atelier', '/usr/share/atelier/access', '/usr/share/atelier/access/avatars'):
+            path = Path(directory)
+            try:
+                metadata = path.stat()
+                matches = not path.is_symlink() and metadata.st_uid == metadata.st_gid == 0 and metadata.st_mode & 0o7777 == 0o755
+                self.report('OK' if matches else 'DRIFT', directory, '' if matches else 'requires root:root 755')
+            except FileNotFoundError:
+                self.report('DRIFT', directory, 'not staged')
+        source = self.root / 'quickshell/.config/quickshell/atelier'
+        names = {line.split()[-1] for line in (self.root / 'auth-setup/qmldir').read_text().splitlines() if line.strip()}
+        names |= {'lock.qml', 'greeter.qml', 'access_identity.py'}
+        for name in sorted(names):
+            self.file(source / name, Path('/etc/atelier/access') / name, mode=0o644, uid=0, gid=0)
+        self.file(self.root / 'auth-setup/qmldir', Path('/etc/atelier/access/qmldir'), mode=0o644, uid=0, gid=0)
+        for name in ('atelier-lock', 'atelier-fingerprint'):
+            self.file(self.root / 'auth-setup/pam' / name, Path('/etc/pam.d') / name, mode=0o644, uid=0, gid=0)
+        self.file(self.root / 'backgrounds/.config/backgrounds/tolkien/balrog.jpg',
+                  Path('/usr/share/atelier/access/background.jpg'), mode=0o644, uid=0, gid=0)
+        self.file(self.root / 'greetd-setup/greeter-avatar.png',
+                  Path('/usr/share/atelier/access/avatars') / f'{os.getuid()}.png', mode=0o644, uid=0, gid=0)
+        self.report('UNKNOWN', 'authentication runtime', 'test real password/fingerprint, output coverage, resume and a fresh login; audit never authenticates')
+
     def item(self, item, entries):
         print(f'\n== {item} ==')
         packages, stow, _ = entries.get(item, ([], [], False))
+        if item == 'greetd' and Path('/etc/atelier/access/greeter-selected').is_file():
+            packages = [package for package in packages if package != 'greetd-regreet']
+        if item == 'hyprland':
+            config = Path(os.environ.get('XDG_CONFIG_HOME') or self.home / '.config')
+            selector = config / 'dotfiles/lock-screen'
+            if selector.is_file() and selector.read_text().strip() == 'atelier':
+                packages = [package for package in packages if package != 'hyprlock']
         self.packages(packages)
         for package in stow:
             self.stow(package)
@@ -326,7 +348,11 @@ class Audit:
                 self.stow(f'hyprland-{self.machine}')
             else:
                 self.report('UNKNOWN', 'Hyprland profile', 'use --machine mini-mecha or --machine oki-mecha')
-        elif item in ['tty', 'greetd', 'upall', 'nautilus', 'theme', 'zed']:
+        elif item == 'quickshell':
+            self.stow('hyprland-common')
+        elif item == 'greetd' and Path('/etc/atelier/access/greeter-selected').is_file():
+            self.access()
+        elif item in ['tty', 'greetd', 'upall', 'nautilus', 'theme', 'zed', 'access']:
             getattr(self, item)()
         elif item == 'pam':
             self.file(self.root / 'pam-setup/etc/pam.d/hyprlock', Path('/etc/pam.d/hyprlock'), mode=0o644, uid=0, gid=0)
@@ -366,7 +392,7 @@ def main():
     print(f'Baseline: current working checkout at {ROOT}')
     print('Only selected expectations are checked; no extra files are deleted or reported as drift.')
     if not args.items or args.items == ['all']:
-        print('[SKIP] Matrix hardware and legacy waybar/wofi/wlogout are opt-in; audit explicitly when used.')
+        print('[SKIP] Matrix hardware and staged access-screen migration are opt-in; audit explicitly when used.')
     audit.packages(['stow'])
     for item in dict.fromkeys(items):
         audit.item(item, entries)

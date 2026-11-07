@@ -14,10 +14,28 @@ RowLayout {
     readonly property bool vpn: !!network && !!network.vpn
     readonly property bool dnd: !!shell.notificationService && shell.notificationService.dnd
     readonly property int notificationCount: shell.notificationService ? shell.notificationService.history.length : 0
+    readonly property var services: shell.desktopServices || null
     readonly property string networkCaption: !network ? "Offline" : network.kind === "ethernet" ? "Wired" : network.label
     readonly property string networkIcon: vpn ? "󰒃" : !network || network.kind === "offline" ? "󰤭"
         : network.kind === "wifi" ? "󰤨" : network.kind === "ethernet" ? "󰈀" : "󰛳"
     spacing: 4
+
+    ActionButton {
+        visible: !!root.services && root.services.players.length > 0
+        horizontalPadding: Theme.barButtonPadding
+        text: "󰎆"
+        hint: root.services ? root.services.players.map(p => (p.trackTitle || p.identity) + (p.trackArtist ? "\n" + p.trackArtist : "")).join("\n\n") : "Media"
+        selected: shell.panel === "media"
+        onClicked: shell.open("media", root.output)
+    }
+    ActionButton {
+        visible: !!root.services && root.services.trayItems.length > 0
+        horizontalPadding: Theme.barButtonPadding
+        text: "󰀻"
+        hint: "System tray"
+        selected: shell.panel === "tray"
+        onClicked: shell.open("tray", root.output)
+    }
 
     RowLayout {
         objectName: "sound-group"
@@ -27,7 +45,7 @@ RowLayout {
             horizontalPadding: Theme.barButtonPadding
             tabularDigits: true
             text: root.audio ? (root.audio.muted ? "󰝟  Muted" : "󰕾  " + root.audio.percent + "%") : "󰕾  —"
-            hint: "Volume · scroll to adjust, right-click for advanced settings"
+            hint: "Volume\nScroll to adjust\nRight-click for advanced settings"
             selected: shell.panel === "audio"
             textColor: root.audio && root.audio.muted ? Theme.muted : Theme.text
             onClicked: shell.open("audio", root.output)
@@ -46,10 +64,10 @@ RowLayout {
             text: root.networkIcon
             textColor: root.vpn ? Theme.good : root.network && root.network.kind !== "offline" ? Theme.text : Theme.muted
             hint: root.network ? root.network.label
-                + (root.network.signal !== null ? " · " + root.network.signal + "% signal" : "")
+                + (root.network.signal !== null ? "\n" + root.network.signal + "% signal" : "")
                 + (root.network.address ? "\n" + root.network.address : "")
-                + (root.vpn ? "\nVPN protected · " + root.network.vpn : "\nVPN not connected")
-                + "\nOpen connectivity settings" : "Network unavailable · open connectivity settings"
+                + (root.vpn ? "\nVPN protected\u2003" + root.network.vpn : "\nVPN not connected")
+                + "\nOpen connectivity settings" : "Network unavailable\nOpen connectivity settings"
             selected: shell.panel === "network"
             Accessible.name: "Network: " + root.networkCaption + (root.vpn ? ", VPN protected" : ", VPN not connected")
             onClicked: shell.open("network", root.output)
@@ -87,7 +105,7 @@ RowLayout {
         text: root.dnd ? "󰂛" : root.notificationCount > 0 ? "󰂚" : "󰂜"
         textColor: Theme.muted
         hint: (root.dnd ? "Do not disturb is on" : "Notifications")
-            + (root.notificationCount ? " · " + root.notificationCount + " in history" : " · All caught up")
+            + (root.notificationCount ? "\n" + root.notificationCount + " in history" : "\nAll caught up")
             + "\nRight-click to toggle do not disturb"
         selected: shell.panel === "notifications" || root.dnd || root.notificationCount > 0
         onClicked: shell.open("notifications", root.output)
@@ -100,7 +118,7 @@ RowLayout {
         objectName: "clock-control"
         horizontalPadding: Theme.barButtonPadding
         tabularDigits: true
-        text: Qt.formatDateTime(root.dateTime, root.compact ? "HH:mm" : "ddd d MMM  ·  HH:mm")
+        text: Qt.formatDateTime(root.dateTime, root.compact ? "HH:mm" : "ddd d MMM\u2003\u2003HH:mm")
         hint: "Calendar"
         selected: shell.panel === "calendar"
         onClicked: shell.open("calendar", root.output)
@@ -111,7 +129,8 @@ RowLayout {
         horizontalPadding: Theme.barButtonPadding
         text: "⏻"
         textColor: Theme.muted
-        hint: "Session & power · Super+Delete"
+        hint: "Session & power"
+        hintShortcut: "Super+Delete"
         selected: shell.panel === "power"
         onClicked: shell.open("power", root.output)
     }

@@ -5,8 +5,7 @@ ColumnLayout {
     id: root
     objectName: "power-panel"
     required property var shell
-    property string choice: ""
-    readonly property int panelHeight: choice ? 430 : 340
+    readonly property int panelHeight: 340
     readonly property var actionsModel: [
         { id: "lock", text: "󰌾  Lock", key: "L" }, { id: "logout", text: "󰍃  Log out", key: "E" },
         { id: "reboot", text: "󰜉  Restart", key: "R" }, { id: "shutdown", text: "⏻  Shut down", key: "S" }
@@ -21,11 +20,23 @@ ColumnLayout {
             id: actions
             model: root.actionsModel
             ActionButton {
+                id: actionButton
                 required property var modelData
                 required property int index
                 objectName: "power-" + modelData.id
                 Layout.fillWidth: true; implicitHeight: 50
-                text: modelData.text + "  [" + modelData.key + "]"; selected: root.choice === modelData.id
+                text: modelData.text + "  [" + modelData.key + "]"
+                contentItem: RowLayout {
+                    spacing: 10
+                    Item { Layout.fillWidth: true }
+                    Label { text: actionButton.modelData.text }
+                    Label {
+                        objectName: "power-shortcut-" + actionButton.modelData.id
+                        text: actionButton.modelData.key
+                        font.family: Theme.mono; font.pixelSize: 12; color: Theme.good
+                    }
+                    Item { Layout.fillWidth: true }
+                }
                 onClicked: root.choose(modelData.id)
                 Keys.onLeftPressed: root.move(index, -1, 0)
                 Keys.onRightPressed: root.move(index, 1, 0)
@@ -37,68 +48,27 @@ ColumnLayout {
                 Keys.onEnterPressed: event => { if (!event.isAutoRepeat) root.choose(modelData.id); }
                 Shortcut {
                     sequence: modelData.key
-                    enabled: root.visible && root.shell.panel === "power" && !root.choice
+                    enabled: root.visible && root.shell.panel === "power"
                     autoRepeat: false
                     onActivated: root.choose(modelData.id)
                 }
             }
         }
     }
-    Label { text: "Arrows / Tab to move · Enter to select · Esc to close"; font.pixelSize: 11; color: Theme.muted }
-    Label { visible: !!root.choice; text: "Confirm " + root.choice + "?"; color: Theme.accent }
-    RowLayout {
-        visible: !!root.choice
-        ActionButton {
-            id: cancelButton
-            objectName: "power-cancel"
-            text: "Cancel"
-            onClicked: root.cancelChoice()
-            Keys.onReturnPressed: event => { if (!event.isAutoRepeat) root.cancelChoice(); }
-            Keys.onEnterPressed: event => { if (!event.isAutoRepeat) root.cancelChoice(); }
-            KeyNavigation.left: confirmButton
-            KeyNavigation.right: confirmButton
-            KeyNavigation.up: confirmButton
-            KeyNavigation.down: confirmButton
-            KeyNavigation.tab: confirmButton
-            KeyNavigation.backtab: confirmButton
-        }
-        Item { Layout.fillWidth: true }
-        ActionButton {
-            id: confirmButton
-            objectName: "power-confirm"
-            text: "Confirm"; dangerous: true
-            onClicked: root.confirmChoice()
-            Keys.onReturnPressed: event => { if (!event.isAutoRepeat) root.confirmChoice(); }
-            Keys.onEnterPressed: event => { if (!event.isAutoRepeat) root.confirmChoice(); }
-            KeyNavigation.left: cancelButton
-            KeyNavigation.right: cancelButton
-            KeyNavigation.up: cancelButton
-            KeyNavigation.down: cancelButton
-            KeyNavigation.tab: cancelButton
-            KeyNavigation.backtab: cancelButton
-        }
+    Label {
+        text: "<font color='" + Theme.good + "'>Arrows / Tab</font> to move&emsp;&emsp;<font color='" + Theme.good
+            + "'>Enter</font> to select&emsp;&emsp;<font color='" + Theme.good + "'>Esc</font> to close"
+        textFormat: Text.RichText
+        font.pixelSize: 11; color: Theme.muted
     }
     function focusAction(index) { if (actions.itemAt(index)) actions.itemAt(index).forceActiveFocus(Qt.TabFocusReason); }
-    function focusInitial() { choice = ""; focusAction(0); }
+    function focusInitial() { focusAction(0); }
     function move(index, dx, dy) {
         focusAction(((Math.floor(index / 2) + dy + 2) % 2) * 2 + (index % 2 + dx + 2) % 2);
     }
     function choose(id) {
-        if (id === "lock") { shell.send("power", { choice: id }); shell.close(); }
-        else {
-            choice = id;
-            // Destructive choices always start on Cancel, never Confirm.
-            Qt.callLater(function() { if (root.choice) cancelButton.forceActiveFocus(Qt.TabFocusReason); });
-        }
-    }
-    function cancelChoice() {
-        const index = actionsModel.findIndex(action => action.id === choice);
-        choice = "";
-        focusAction(Math.max(0, index));
-    }
-    function confirmChoice() {
-        if (!["logout", "reboot", "shutdown"].includes(choice)) return;
-        shell.send("power", { choice: choice });
+        if (shell.panel !== "power" || !actionsModel.some(action => action.id === id)) return;
+        shell.send("power", { choice: id });
         shell.close();
     }
 }

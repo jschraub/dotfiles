@@ -18,9 +18,10 @@ PanelWindow {
         anchors { left: parent.left; leftMargin: 12; verticalCenter: parent.verticalCenter }
         spacing: 10
         ActionButton {
-            text: shell.preview ? "▦  Atelier · preview" : "▦  Applications"
+            text: shell.preview ? "▦  Atelier\u2003Preview" : "▦  Applications"
             selected: shell.panel === "launcher"
-            hint: "Applications · Super+Space"
+            hint: "Applications"
+            hintShortcut: "Super+Space"
             onClicked: shell.open("launcher", bar.screen)
         }
         Rectangle { width: 1; height: 16; color: Theme.line }
@@ -45,7 +46,7 @@ PanelWindow {
                     selected: !!bar.monitor.activeWorkspace && bar.monitor.activeWorkspace.id === modelData
                     textColor: windowCount > 0 ? Theme.accent : Theme.muted
                     text: String(modelData)
-                    hint: "Workspace " + modelData + " · " + (windowCount === 0 ? "Empty"
+                    hint: "Workspace\u00a0" + modelData + "\n" + (windowCount === 0 ? "Empty"
                         : windowCount + (windowCount === 1 ? " window" : " windows"))
                     background: Rectangle {
                         radius: 7

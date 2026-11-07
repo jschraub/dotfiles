@@ -32,12 +32,17 @@ ShellRoot {
         target: "test"
         function open(): void { fakeShell.requests = []; fakeShell.panel = "power"; }
         function key(name: string): bool { return events.keyClick(Qt["Key_" + name], Qt.NoModifier, 0); }
+        function mouseFocus(): void {
+            find(menu.contentItem, "power-logout").forceActiveFocus(Qt.MouseFocusReason);
+            find(menu.contentItem, "power-lock").forceActiveFocus(Qt.MouseFocusReason);
+        }
         function status(): string {
             const nativeWindow = menu.contentItem.Window.window;
             const active = nativeWindow ? nativeWindow.activeFocusItem : null;
             const panel = find(menu.contentItem, "power-panel");
             return JSON.stringify({ width: menu.width, panel: fakeShell.panel,
-                focus: active ? active.objectName : "", choice: panel ? panel.choice : "",
+                focus: active ? active.objectName : "",
+                focusBorder: active && active.background ? active.background.border.width : -1,
                 requests: fakeShell.requests });
         }
     }

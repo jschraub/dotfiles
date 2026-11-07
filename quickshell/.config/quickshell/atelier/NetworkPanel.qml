@@ -36,7 +36,7 @@ ColumnLayout {
             onClicked: { shell.networkBusy = true; shell.send("wifi", { enabled: !root.net.wifi }); }
         }
     }
-    Label { Layout.fillWidth: true; text: root.net ? root.net.label + (root.net.vpn ? "  ·  VPN protected" : "") : "NetworkManager unavailable"; color: Theme.muted }
+    Label { Layout.fillWidth: true; text: root.net ? root.net.label + (root.net.vpn ? "\u2003\u2003VPN protected" : "") : "NetworkManager unavailable"; color: Theme.muted }
     Label { visible: !!root.net && !!root.net.address; Layout.fillWidth: true; text: root.net ? root.net.address : ""; font.family: Theme.mono; font.pixelSize: 11; color: Theme.muted }
     RowLayout {
         ActionButton { text: "↻  Rescan"; enabled: !shell.networkBusy && !!root.net && root.net.wifi; onClicked: { shell.networkBusy = true; shell.send("rescan"); } }
@@ -68,7 +68,7 @@ ColumnLayout {
                 Label { text: row.modelData.signal + "%"; color: Theme.muted; font.pixelSize: 12; Layout.rightMargin: 10 }
             }
         }
-        Label { anchors.centerIn: parent; visible: list.count === 0; text: root.net && !root.net.wifi ? "Wi-Fi is turned off" : "No cached networks · try Rescan"; color: Theme.muted; font.pixelSize: 12 }
+        Label { anchors.centerIn: parent; visible: list.count === 0; text: root.net && !root.net.wifi ? "Wi-Fi is turned off" : "No cached networks\nTry Rescan"; horizontalAlignment: Text.AlignHCenter; color: Theme.muted; font.pixelSize: 12 }
     }
     ColumnLayout {
         visible: root.target !== null
@@ -85,14 +85,14 @@ ColumnLayout {
         objectName: "proton-vpn-action"
         visible: shell.networks.proton
         Layout.fillWidth: true
-        text: root.net && root.net.vpn ? "󰒃  " + root.net.vpn + " · Manage in Proton ↗" : "󰒃  Open Proton VPN ↗"
+        text: root.net && root.net.vpn ? "󰒃  " + root.net.vpn + "\u2003Manage in Proton ↗" : "󰒃  Open Proton VPN ↗"
         onClicked: { shell.send("vpn"); shell.close(); }
     }
     Repeater {
         model: shell.networks.proton ? [] : shell.networks.vpns
         ActionButton {
             required property var modelData
-            Layout.fillWidth: true; text: "󰒃  " + modelData.name + (root.net && root.net.vpn === modelData.name ? " · Disconnect" : " · Connect")
+            Layout.fillWidth: true; text: "󰒃  " + modelData.name + (root.net && root.net.vpn === modelData.name ? "\u2003Disconnect" : "\u2003Connect")
             enabled: !shell.networkBusy
             onClicked: { shell.networkBusy = true; shell.send("vpn", { uuid: modelData.uuid }); }
         }
@@ -101,11 +101,11 @@ ColumnLayout {
     ActionButton {
         objectName: "bluetooth-action"
         Layout.fillWidth: true
-        text: "󰂯  Bluetooth" + (!root.bluetooth ? " · Unavailable" : root.bluetooth.connected.length
-            ? " · " + root.bluetooth.connected.length + " connected" : root.bluetooth.powered ? " · On" : " · Off") + " ↗"
+        text: "󰂯  Bluetooth" + (!root.bluetooth ? "\u2003Unavailable" : root.bluetooth.connected.length
+            ? "\u2003" + root.bluetooth.connected.length + " connected" : root.bluetooth.powered ? "\u2003On" : "\u2003Off") + " ›"
         hint: root.bluetooth && root.bluetooth.connected.length ? root.bluetooth.connected.join("\n")
-            : root.bluetooth && root.bluetooth.powered ? "Bluetooth on · no connected devices" : "Bluetooth off"
-        onClicked: { shell.send("open", { target: "bluetooth" }); shell.close(); }
+            : root.bluetooth && root.bluetooth.powered ? "Bluetooth on\nNo connected devices" : "Bluetooth off"
+        onClicked: shell.open("bluetooth")
     }
     ActionButton {
         objectName: "cast-action"

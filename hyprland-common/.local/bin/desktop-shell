@@ -1,168 +1,53 @@
 #!/usr/bin/env bash
-# One lifecycle/entry point for Atelier and the retained legacy desktop.
+# Atelier is the sole desktop UI. Failed startup is explicit, never legacy.
 set -euo pipefail
 config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
-selector="$config_home/dotfiles/desktop-shell"
 qs="${ATELIER_QS_BINARY:-qs}"
-uid="$(id -u)"
-runtime="${XDG_RUNTIME_DIR:-/run/user/$uid}"
-swaync_mask_marker="$runtime/dotfiles-atelier-swaync-mask"
-swaync_runtime_unit="$runtime/systemd/user/swaync.service"
+runtime="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 
-mode() {
-    if [[ -r "$selector" ]]; then
-        local selected
-        read -r selected < "$selector" || true
-        [[ "$selected" == quickshell ]] && { echo quickshell; return; }
-        echo legacy
-    else
-        echo legacy
+start_atelier() (
+    exec 9>"$runtime/dotfiles-desktop-shell.lock"
+    flock 9
+    command -v "$qs" >/dev/null || { echo 'Install Quickshell: ./setup.sh quickshell' >&2; exit 1; }
+    [[ -f "$config_home/quickshell/atelier/shell.qml" ]] || { echo 'Restow the quickshell package first' >&2; exit 1; }
+    if [[ "$("$qs" ipc -c atelier call shell health 2>/dev/null || true)" != ready ]]; then
+        # Clear a failed/test/preview instance, but never restart a healthy shell.
+        "$qs" kill -c atelier >/dev/null 2>&1 || true
+        env -u ATELIER_PREVIEW -u ATELIER_TEST "$qs" -c atelier --no-duplicate --daemonize 9>&-
     fi
-}
-
-select_mode() {
-    mkdir -p "${selector%/*}"
-    local temporary
-    temporary="$(mktemp "${selector}.XXXXXX")"
-    printf '%s\n' "$1" > "$temporary"
-    mv -- "$temporary" "$selector"
-}
-
-legacy_start() {
-    if command -v swaync >/dev/null && ! pgrep -u "$uid" -x swaync >/dev/null; then
-        local load
-        load="$(systemctl --user show swaync.service --property=LoadState --value 2>/dev/null || true)"
-        if [[ "$load" == loaded ]]; then
-            systemctl --user start swaync.service || echo 'Could not start swaync.service' >&2
-        elif [[ "$load" == masked ]]; then
-            echo 'SwayNC has a pre-existing service mask; leaving that policy unchanged.' >&2
-        else
-            systemd-cat --identifier=swaync --level-prefix=false swaync 9>&- &
-        fi
-    fi
-    if command -v waybar >/dev/null && ! pgrep -u "$uid" -x waybar >/dev/null; then
-        systemd-cat --identifier=waybar --level-prefix=false waybar 9>&- &
-    fi
-}
-
-block_swaync_activation() {
-    local load
-    load="$(systemctl --user show swaync.service --property=LoadState --value 2>/dev/null || true)"
-    if [[ "$load" == loaded ]]; then
-        # D-Bus clients (including the old bar) can activate a disabled service.
-        # A runtime-only mask prevents reacquisition while keeping the old bar
-        # visible until Atelier is ready. Never take ownership of a user's mask.
-        systemctl --user mask --runtime --now swaync.service || return 1
-        : > "$swaync_mask_marker"
-        load="$(systemctl --user show swaync.service --property=LoadState --value 2>/dev/null || true)"
-        [[ "$load" == masked ]] || { echo 'Could not block SwayNC activation safely.' >&2; return 1; }
-    fi
-    if pgrep -u "$uid" -x swaync >/dev/null; then
-        pkill -u "$uid" -x swaync 2>/dev/null || true
-    fi
-    for ((attempt=0; attempt<30; attempt++)); do
-        pgrep -u "$uid" -x swaync >/dev/null || return 0
-        sleep 0.1
-    done
-    echo 'SwayNC is still running; aborting the notification handoff.' >&2
-    return 1
-}
-
-unblock_owned_swaync() {
-    [[ -f "$swaync_mask_marker" ]] || return 0
-    if [[ "$(readlink "$swaync_runtime_unit" 2>/dev/null || true)" == /dev/null ]]; then
-        systemctl --user unmask --runtime swaync.service || return 1
-    fi
-    rm -f -- "$swaync_mask_marker"
-}
-
-notifications_ready() {
-    local deadline=$((SECONDS + 8))
-    while (( SECONDS < deadline )); do
-        # Unlike gdbus's default calls, this must NOT activate the old server
-        # when the name is momentarily unowned. Allow Quickshell's retry to settle.
-        if busctl --user --auto-start=no --timeout=1 call org.freedesktop.Notifications \
-            /org/freedesktop/Notifications org.freedesktop.Notifications \
-            GetServerInformation 2>/dev/null | grep -qi quickshell; then
-            return 0
-        fi
-        sleep 0.1
-    done
-    echo 'Notification ownership did not transfer to Quickshell; restoring the legacy desktop.' >&2
-    return 1
-}
-
-start_atelier() {
-    command -v "$qs" >/dev/null || { echo 'Install Quickshell first: ./setup.sh quickshell' >&2; return 1; }
-    [[ -f "$config_home/quickshell/atelier/shell.qml" ]] || { echo 'Restow the quickshell package first' >&2; return 1; }
-    env -u ATELIER_PREVIEW -u ATELIER_TEST "$qs" -c atelier --no-duplicate --daemonize 9>&- || return 1
     for ((attempt=0; attempt<50; attempt++)); do
-        if [[ "$("$qs" ipc -c atelier call shell health 2>/dev/null || true)" == ready ]]; then return 0; fi
+        if [[ "$("$qs" ipc -c atelier call shell health 2>/dev/null || true)" == ready ]]; then
+            if busctl --user --auto-start=no --timeout=1 call org.freedesktop.Notifications \
+                /org/freedesktop/Notifications org.freedesktop.Notifications GetServerInformation 2>/dev/null | grep -qi quickshell; then
+                exit 0
+            fi
+        fi
         sleep 0.2
     done
-    echo 'Atelier did not become ready. Inspect qs log -c atelier.' >&2
-    return 1
-}
-
-activate() (
-    exec 9>"${XDG_RUNTIME_DIR:-/run/user/$uid}/dotfiles-desktop-shell.lock"
-    flock 9
-    command -v "$qs" >/dev/null || { echo 'Install Quickshell first: ./setup.sh quickshell' >&2; return 1; }
-    if [[ "${1:-}" == recover && "$("$qs" ipc -c atelier call shell health 2>/dev/null || true)" == ready ]]; then
-        return 0
-    fi
-    # Also restore the guard if startup is interrupted or fails before readiness.
-    trap '"$qs" kill -c atelier >/dev/null 2>&1 || true; select_mode legacy; unblock_owned_swaync; legacy_start' EXIT
-    # A preview must never become the live notification owner by accident.
-    "$qs" kill -c atelier >/dev/null 2>&1 || true
-    block_swaync_activation || return 1
-    if start_atelier && notifications_ready; then
-        select_mode quickshell || return 1
-        pkill -u "$uid" -x waybar 2>/dev/null || true
-        trap - EXIT
-    else
-        return 1
-    fi
-)
-
-switch_legacy() (
-    exec 9>"${XDG_RUNTIME_DIR:-/run/user/$uid}/dotfiles-desktop-shell.lock"
-    flock 9
-    select_mode legacy
-    "$qs" kill -c atelier >/dev/null 2>&1 || true
-    unblock_owned_swaync || return 1
-    legacy_start
+    echo 'Atelier did not become ready or acquire notifications. Inspect qs log -c atelier.' >&2
+    exit 1
 )
 
 case "${1:-start}" in
-    mode) mode ;;
-    activate) activate ;;
-    legacy) switch_legacy ;;
+    mode) echo quickshell ;;
+    start|activate) start_atelier ;;
     preview)
-        command -v "$qs" >/dev/null || { echo 'Install Quickshell first: ./setup.sh quickshell' >&2; exit 1; }
+        if "$qs" ipc -c atelier call shell health >/dev/null 2>&1; then
+            echo 'Atelier is already running; preview must not replace the live desktop.' >&2
+            exit 1
+        fi
         ATELIER_PREVIEW=1 "$qs" -c atelier --no-duplicate
-        ;;
-    start)
-        if [[ "$(mode)" == quickshell ]]; then activate; else legacy_start; fi
         ;;
     toggle)
         panel="${2:-launcher}"
-        if [[ "$(mode)" == quickshell ]]; then
-            if ! "$qs" ipc -c atelier call shell toggle "$panel"; then
-                if activate recover; then
-                    "$qs" ipc -c atelier call shell toggle "$panel"
-                else
-                    "$0" toggle "$panel"
-                fi
-            fi
-        else
-            case "$panel" in
-                launcher) exec wofi --show drun ;;
-                bindings) exec "$config_home/hypr/scripts/keybindings.py" ;;
-                power) exec "$HOME/.local/bin/wlogout-centered.sh" ;;
-                *) echo "No legacy entry point for $panel" >&2; exit 1 ;;
-            esac
+        case "$panel" in
+            launcher|bindings|power|audio|audioDevices|bluetooth|media|tray|network|calendar|notifications) ;;
+            *) echo "Unknown Atelier panel: $panel" >&2; exit 2 ;;
+        esac
+        if ! "$qs" ipc -c atelier call shell toggle "$panel"; then
+            start_atelier
+            "$qs" ipc -c atelier call shell toggle "$panel"
         fi
         ;;
-    *) echo 'Usage: desktop-shell start|activate|legacy|preview|mode|toggle PANEL' >&2; exit 2 ;;
+    *) echo 'Usage: desktop-shell start|activate|preview|mode|toggle PANEL' >&2; exit 2 ;;
 esac

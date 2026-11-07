@@ -11,13 +11,13 @@ ColumnLayout {
         Label { text: "Notifications"; font.pixelSize: 22; font.weight: Font.DemiBold; Layout.fillWidth: true }
         ActionButton { text: "Clear"; enabled: !!root.service && root.service.history.length > 0; onClicked: root.service.clear() }
     }
-    ActionButton { text: root.service && root.service.dnd ? "󰂛  Do not disturb · On" : "󰂚  Do not disturb · Off"; selected: !!root.service && root.service.dnd; enabled: !!root.service; onClicked: root.service.dnd = !root.service.dnd }
+    ActionButton { text: root.service && root.service.dnd ? "󰂛  Do not disturb\u2003On" : "󰂚  Do not disturb\u2003Off"; selected: !!root.service && root.service.dnd; enabled: !!root.service; onClicked: root.service.dnd = !root.service.dnd }
     ListView {
         id: list
         Layout.fillWidth: true; Layout.fillHeight: true; clip: true; spacing: 8
         model: root.service ? root.service.history : []
         Controls.ScrollBar.vertical: ScrollHandle {}
         delegate: NotificationCard { required property var modelData; width: list.width; record: modelData; service: root.service }
-        Label { anchors.centerIn: parent; text: root.service ? "You're all caught up" : "Preview · SwayNC still owns notifications"; color: Theme.muted; visible: list.count === 0; font.pixelSize: 12 }
+        Label { anchors.centerIn: parent; text: root.service ? "You're all caught up" : "Preview\nNotifications are disabled"; horizontalAlignment: Text.AlignHCenter; color: Theme.muted; visible: list.count === 0; font.pixelSize: 12 }
     }
 }

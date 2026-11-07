@@ -9,7 +9,7 @@ error() { printf '\033[1;31m::\033[0m %s\n' "$*"; exit 1; }
 
 # ── Install packages ──
 install_packages() {
-    local pkgs=(nautilus polkit-gnome gvfs gvfs-mtp gvfs-smb python inter-font breeze-icons)
+    local pkgs=(nautilus polkit gvfs gvfs-mtp gvfs-smb python inter-font breeze-icons)
     local missing=()
     for pkg in "${pkgs[@]}"; do
         pacman -Qi "$pkg" &>/dev/null || missing+=("$pkg")
@@ -70,7 +70,7 @@ configure_nautilus
 info "Done!"
 echo ""
 info "Summary:"
-echo "  - Packages installed: nautilus polkit-gnome gvfs gvfs-mtp gvfs-smb"
+echo "  - Packages installed: nautilus polkit gvfs gvfs-mtp gvfs-smb"
 echo "  - Dark mode enabled"
 echo "  - Default view: list (compact)"
 echo "  - GTK4 settings: gtk-decoration-layout=: (CSD buttons hidden)"

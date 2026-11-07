@@ -190,127 +190,7 @@ class AdapterTest(unittest.TestCase):
 
 
 class LifecycleTest(unittest.TestCase):
-    def test_activation_stops_managed_notification_owner_before_starting_quickshell(self):
-        """Killing a process does not stop its manager/DBus activation path."""
-        with tempfile.TemporaryDirectory() as directory:
-            home = Path(directory)
-            binary = home / "bin"
-            binary.mkdir()
-            config = home / ".config/quickshell/atelier/shell.qml"
-            config.parent.mkdir(parents=True)
-            config.write_text("// simulated qs configuration")
-            (home / "managed-owner").touch()
-            (home / "running-owner").touch()
-            commands = {
-                "qs": '''#!/bin/bash
-if [[ "$1" == kill ]]; then exit 0; fi
-if [[ "$1" == ipc ]]; then echo ready; exit 0; fi
-echo launch >> "$CALLS"
-if [[ "${FAIL_START:-0}" == 1 ]]; then exit 1; fi
-if [[ -f "$HOME/managed-owner" ]]; then
-  touch "$HOME/running-owner"
-  echo 'Could not register notification server at org.freedesktop.Notifications, presumably because one is already registered.' >&2
-fi
-''',
-                "systemctl": '''#!/bin/bash
-echo "systemctl $*" >> "$CALLS"
-case "$*" in
-  *show*swaync.service*)
-    if [[ -L "$XDG_RUNTIME_DIR/systemd/user/swaync.service" ]]; then echo masked; else echo loaded; fi ;;
-  *unmask*swaync.service*) rm -f "$XDG_RUNTIME_DIR/systemd/user/swaync.service" ;;
-  *mask*swaync.service*)
-    mkdir -p "$XDG_RUNTIME_DIR/systemd/user"
-    ln -s /dev/null "$XDG_RUNTIME_DIR/systemd/user/swaync.service"
-    rm -f "$HOME/managed-owner" "$HOME/running-owner" ;;
-  *stop*swaync.service*) rm -f "$HOME/managed-owner" "$HOME/running-owner" ;;
-  *start*swaync.service*) touch "$HOME/managed-owner" "$HOME/running-owner" ;;
-  *is-active*swaync.service*) [[ -f "$HOME/managed-owner" ]] ;;
-  *) exit 1 ;;
-esac
-''',
-                "pgrep": '''#!/bin/bash
-if [[ "$*" == *swaync* && -f "$HOME/running-owner" ]]; then echo 4242; else exit 1; fi
-''',
-                "pkill": '#!/bin/sh\nrm -f "$HOME/running-owner"\n',
-                "gdbus": '''#!/bin/sh
-if [ -f "$HOME/managed-owner" ]; then echo SwayNotificationCenter; else echo quickshell; fi
-''',
-                "busctl": '''#!/bin/sh
-echo "busctl $*" >> "$CALLS"
-if [ -f "$HOME/managed-owner" ]; then echo SwayNotificationCenter; else echo quickshell; fi
-''',
-                "systemd-cat": "#!/bin/sh\nexit 0\n",
-                "swaync": "#!/bin/sh\nexit 0\n",
-                "waybar": "#!/bin/sh\nexit 0\n",
-            }
-            for name, script in commands.items():
-                file = binary / name
-                file.write_text(script)
-                file.chmod(0o755)
-            calls = home / "calls"
-            env = dict(os.environ, HOME=str(home), XDG_CONFIG_HOME=str(home / ".config"),
-                       XDG_RUNTIME_DIR=str(home), PATH=f'{binary}:{os.environ["PATH"]}',
-                       ATELIER_QS_BINARY=str(binary / "qs"), CALLS=str(calls))
-            result = subprocess.run([str(SHELL), "activate"], env=env, text=True,
-                                    capture_output=True, timeout=8)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertNotIn("Could not register notification server", result.stderr)
-            self.assertEqual((home / ".config/dotfiles/desktop-shell").read_text().strip(), "quickshell")
-            trace = calls.read_text().splitlines()
-            self.assertLess(next(i for i, line in enumerate(trace) if "mask" in line and "--now" in line and "swaync.service" in line),
-                            trace.index("launch"))
-            self.assertTrue(any("--auto-start=no" in line for line in trace if line.startswith("busctl ")))
-            self.assertTrue((home / "dotfiles-atelier-swaync-mask").exists())
-            self.assertTrue((home / "systemd/user/swaync.service").is_symlink())
-            rollback = subprocess.run([str(SHELL), "legacy"], env=env, text=True,
-                                      capture_output=True, timeout=5)
-            self.assertEqual(rollback.returncode, 0, rollback.stderr)
-            self.assertFalse((home / "dotfiles-atelier-swaync-mask").exists())
-            self.assertFalse((home / "systemd/user/swaync.service").is_symlink())
-            self.assertTrue((home / "running-owner").exists())
-            self.assertEqual((home / ".config/dotfiles/desktop-shell").read_text().strip(), "legacy")
-            failed = subprocess.run([str(SHELL), "activate"], env=dict(env, FAIL_START="1"),
-                                    text=True, capture_output=True, timeout=5)
-            self.assertEqual(failed.returncode, 1)
-            self.assertFalse((home / "dotfiles-atelier-swaync-mask").exists())
-            self.assertFalse((home / "systemd/user/swaync.service").is_symlink())
-            self.assertTrue((home / "running-owner").exists(), "Restore SwayNC after failed startup")
-            self.assertEqual((home / ".config/dotfiles/desktop-shell").read_text().strip(), "legacy")
-
-    def test_legacy_does_not_remove_a_preexisting_user_service_mask(self):
-        with tempfile.TemporaryDirectory() as directory:
-            home = Path(directory)
-            binary = home / "bin"
-            binary.mkdir()
-            unit = home / "systemd/user/swaync.service"
-            unit.parent.mkdir(parents=True)
-            unit.symlink_to("/dev/null")
-            commands = {
-                "qs": "#!/bin/sh\nexit 0\n",
-                "pgrep": "#!/bin/sh\nexit 1\n",
-                "systemctl": '''#!/bin/bash
-echo "$*" >> "$CALLS"
-if [[ "$*" == *show* ]]; then echo masked; fi
-''',
-                "systemd-cat": "#!/bin/sh\nexit 0\n",
-                "swaync": "#!/bin/sh\nexit 0\n",
-                "waybar": "#!/bin/sh\nexit 0\n",
-            }
-            for name, script in commands.items():
-                file = binary / name
-                file.write_text(script)
-                file.chmod(0o755)
-            calls = home / "calls"
-            env = dict(os.environ, HOME=str(home), XDG_CONFIG_HOME=str(home / ".config"),
-                       XDG_RUNTIME_DIR=str(home), PATH=f'{binary}:{os.environ["PATH"]}',
-                       ATELIER_QS_BINARY=str(binary / "qs"), CALLS=str(calls))
-            result = subprocess.run([str(SHELL), "legacy"], env=env, text=True,
-                                    capture_output=True, timeout=5)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertTrue(unit.is_symlink())
-            self.assertNotIn("unmask", calls.read_text())
-
-    def test_activation_is_health_checked_and_failure_keeps_legacy(self):
+    def test_native_start_is_idempotent_and_failure_never_launches_legacy(self):
         for fail in [False, True]:
             with self.subTest(fail=fail), tempfile.TemporaryDirectory() as directory:
                 home = Path(directory)
@@ -322,18 +202,20 @@ if [[ "$*" == *show* ]]; then echo masked; fi
                 commands = {
                     "qs": '''#!/bin/bash
 if [[ "$1" == kill ]]; then exit 0; fi
-if [[ "$1" == ipc ]]; then echo ready; exit 0; fi
+if [[ "$1" == ipc ]]; then [[ -f "$HOME/started" ]] && echo ready; exit 0; fi
 [[ -z "${ATELIER_PREVIEW:-}" && -z "${ATELIER_TEST:-}" ]] || exit 3
+echo launch >> "$CALLS"
+[[ "$FAIL_QS" == 0 ]] && touch "$HOME/started"
 exit "$FAIL_QS"
 ''',
                     "pgrep": "#!/bin/sh\nexit 1\n",
                     "pkill": '#!/bin/sh\nprintf "%s\\n" "$*" >> "$CALLS"\n',
                     "gdbus": "#!/bin/sh\necho quickshell\n",
-                    "busctl": "#!/bin/sh\necho quickshell\n",
+                    "busctl": '#!/bin/sh\necho "$*" >> "$CALLS"\necho quickshell\n',
                     "systemctl": "#!/bin/sh\nexit 1\n",
                     "systemd-cat": "#!/bin/sh\nexit 0\n",
-                    "swaync": "#!/bin/sh\nexit 0\n",
-                    "waybar": "#!/bin/sh\nexit 0\n",
+                    "swaync": '#!/bin/sh\necho forbidden >> "$CALLS"\n',
+                    "waybar": '#!/bin/sh\necho forbidden >> "$CALLS"\n',
                 }
                 for name, script in commands.items():
                     file = binary / name
@@ -347,28 +229,25 @@ exit "$FAIL_QS"
                 result = subprocess.run([str(SHELL), "activate"], env=env, text=True,
                                         capture_output=True, timeout=5)
                 self.assertEqual(result.returncode, int(fail), result.stderr)
-                self.assertEqual((home / ".config/dotfiles/desktop-shell").read_text().strip(),
-                                 "legacy" if fail else "quickshell")
-                if fail:
-                    self.assertFalse(calls.exists(), "Do not stop Waybar when activation fails")
-                else:
-                    self.assertIn("waybar", calls.read_text())
+                self.assertNotIn('forbidden', calls.read_text())
+                self.assertFalse((home / '.config/dotfiles/desktop-shell').exists())
+                if not fail:
+                    subprocess.run([str(SHELL), 'start'], env=env, check=True, capture_output=True)
+                    self.assertEqual(calls.read_text().splitlines().count('launch'), 1)
+                    self.assertIn('--auto-start=no', calls.read_text())
 
-    def test_install_does_not_implicitly_activate(self):
+    def test_mode_is_always_native_and_legacy_command_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             result = subprocess.run([str(SHELL), "mode"], env=dict(os.environ,
                                     HOME=directory, XDG_CONFIG_HOME=directory),
                                     text=True, capture_output=True, check=True)
-            self.assertEqual(result.stdout.strip(), "legacy")
-            selector = Path(directory) / "dotfiles/desktop-shell"
-            selector.parent.mkdir()
-            selector.write_text("quickshell\n")
-            result = subprocess.run([str(SHELL), "mode"], env=dict(os.environ,
-                                    HOME=directory, XDG_CONFIG_HOME=directory),
-                                    text=True, capture_output=True, check=True)
             self.assertEqual(result.stdout.strip(), "quickshell")
+            result = subprocess.run([str(SHELL), "legacy"], env=dict(os.environ,
+                                     HOME=directory, XDG_CONFIG_HOME=directory),
+                                    text=True, capture_output=True)
+            self.assertEqual(result.returncode, 2)
 
-    def test_new_shell_is_default_install_legacy_is_opt_in(self):
+    def test_new_shell_is_default_and_legacy_is_retired(self):
         result = subprocess.run(["bash", "-c", "source ./setup.sh; default_items"],
                                 cwd=ROOT, text=True, capture_output=True, check=True)
         names = result.stdout.splitlines()

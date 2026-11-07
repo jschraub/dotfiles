@@ -78,10 +78,29 @@ need adjustment after browser updates; the installer does not restart browsers.
 
 Chromium, Qt-specific apps, other Electron apps, Flatpak sandboxes and apps with
 fixed internal themes aren't forcibly recolored. They may inherit dark preferences,
-not exact colors. Legacy Waybar/Wofi/wlogout rollback assets retain their old theme.
+not exact colors. The former Waybar/Wofi/wlogout assets have been retired.
 GTK4 CSS variables require GTK 4.16+/libadwaita 1.6+ (current Arch/CachyOS). Do not
 globally force `GTK_THEME`; the local GTK3 theme uses GTK's Adwaita-dark resources
 and no downloaded Catppuccin dependency.
+
+Plain GTK4 applications such as pavucontrol also receive explicit amber slider,
+progress, checked-control and selected-tab styling: their stock Adwaita controls
+do not consistently follow libadwaita's color variables. Audio level meters retain
+semantic green/amber/red states. Close and reopen an existing application after
+changing its GTK stylesheet; setup does not restart it or alter audio settings.
+
+## Cursor
+
+Bibata Modern Amber at 24px is the shared cursor for Hyprland, GTK and XWayland.
+`setup.sh theme` and `setup.sh hyprland` install the pinned upstream v2.0.7 archive
+per-user under `$XDG_DATA_HOME/icons` (normally `~/.local/share/icons`). Downloads
+are SHA-256 checked before extraction; a pre-existing unmanaged theme is backed
+up, not overwritten. No root access or binary assets in this repo are needed.
+Upstream: <https://github.com/ful1e5/Bibata_Cursor> (GPL-3.0).
+
+GSettings, GTK3/4 settings, the default Xcursor theme and Hyprland's startup cursor
+selection agree. Theme application updates the live compositor cursor; some
+already-running client apps may need reopening. The greeter remains unchanged.
 
 ## Root-owned greeter
 

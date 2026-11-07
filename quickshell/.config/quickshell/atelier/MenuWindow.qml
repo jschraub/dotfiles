@@ -17,7 +17,8 @@ PanelWindow {
     property bool centered: ["launcher", "bindings", "power"].includes(shell.panel)
     property real preferredWidth: shell.panel === "bindings" ? 940 : shell.panel === "launcher" ? 680 : shell.panel === "power" ? 460 : 420
     property real preferredHeight: ({ bindings: 600, launcher: 530, audio: 270, network: 650,
-                                      calendar: 430, power: 340, notifications: 570 })[shell.panel] || 300
+                                      calendar: 430, power: 340, notifications: 570, audioDevices: 570,
+                                      bluetooth: 570, media: 430, tray: 470 })[shell.panel] || 300
     readonly property rect cardGeometry: Qt.rect(card.x, card.y, card.width, card.height)
     Rectangle { anchors.fill: parent; color: window.centered ? "#55000000" : "#10000000" }
     MouseArea { anchors.fill: parent; onClicked: shell.close() }
@@ -49,6 +50,10 @@ PanelWindow {
                     case "launcher": return launcher;
                     case "bindings": return bindings;
                     case "audio": return audio;
+                    case "audioDevices": return audioDevices;
+                    case "bluetooth": return bluetooth;
+                    case "media": return media;
+                    case "tray": return tray;
                     case "network": return network;
                     case "calendar": return calendar;
                     case "power": return power;
@@ -71,6 +76,10 @@ PanelWindow {
     Component { id: launcher; Launcher { shell: window.shell } }
     Component { id: bindings; Bindings { shell: window.shell } }
     Component { id: audio; AudioPanel { shell: window.shell } }
+    Component { id: audioDevices; AudioDevicesPanel { shell: window.shell } }
+    Component { id: bluetooth; BluetoothPanel { shell: window.shell } }
+    Component { id: media; MediaPanel { shell: window.shell } }
+    Component { id: tray; TrayPanel { shell: window.shell } }
     Component { id: network; NetworkPanel { shell: window.shell } }
     Component { id: calendar; CalendarPanel {} }
     Component { id: power; PowerPanel { shell: window.shell } }

@@ -3,6 +3,10 @@
 # No reader/service -> password-only, silently. Never put pam_fprintd in PAM.
 set -euo pipefail
 config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+if [[ $# == 0 && -r "$config_home/dotfiles/lock-screen" ]] && \
+    [[ "$(< "$config_home/dotfiles/lock-screen")" == atelier ]]; then
+    exec "$HOME/.local/bin/desktop-lock"
+fi
 mode="${HYPRLOCK_FINGERPRINT:-}"
 if [[ -z "$mode" && -r "$config_home/dotfiles/hyprlock-fingerprint" ]]; then
     read -r mode < "$config_home/dotfiles/hyprlock-fingerprint" || true

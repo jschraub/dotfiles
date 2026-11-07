@@ -1,0 +1,5 @@
+#%PAM-1.0
+# A separate fingerprint-only conversation; never consumes a typed password.
+# Used only when a reader is detected and the existing user policy permits it.
+auth      required                 pam_fprintd.so max_tries=3 timeout=15
+account   include                  system-auth

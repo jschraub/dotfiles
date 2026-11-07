@@ -15,7 +15,7 @@ QS = os.environ.get('ATELIER_QS_BINARY', shutil.which('qs') or 'qs')
 
 @unittest.skipUnless(os.environ.get('ATELIER_GUI_TESTS') == '1', 'opt-in: temporary keyboard power menu')
 class PowerKeyboardTest(unittest.TestCase):
-    def test_initial_focus_arrows_shortcuts_and_safe_confirmation(self):
+    def test_initial_focus_arrows_and_immediate_power_actions(self):
         with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryFile(mode='w+') as log:
             config = Path(directory) / 'atelier'
             shutil.copytree(CONFIG, config)
@@ -46,31 +46,31 @@ class PowerKeyboardTest(unittest.TestCase):
                 self.assertIsNone(process.poll())
                 time.sleep(.15)
                 self.assertEqual(state()['focus'], 'power-lock', state())
+                self.assertEqual(state()['focusBorder'], 1, 'Keyboard focus stays visible')
+                ipc('mouseFocus')
+                self.assertEqual(state()['focusBorder'], 0, 'Mouse focus must not leave an amber outline')
+                self.assertEqual(key('Tab')['focusBorder'], 1, 'Keyboard navigation restores its outline')
+                key('Left')
                 for direction, focus in [('Right', 'logout'), ('Down', 'shutdown'), ('Left', 'reboot'), ('Up', 'lock'), ('Tab', 'logout')]:
                     self.assertEqual(key(direction)['focus'], 'power-' + focus)
                 selected = key('Return')
-                self.assertEqual(selected['choice'], 'logout')
-                self.assertEqual(selected['focus'], 'power-cancel')
-                self.assertEqual(selected['requests'], [])
-                cancelled = key('Return')
-                self.assertEqual(cancelled['choice'], '')
-                self.assertEqual(cancelled['focus'], 'power-logout')
-                self.assertEqual(cancelled['requests'], [])
+                self.assertEqual(selected['requests'], [{'action': 'power', 'choice': 'logout'}])
+                self.assertEqual(selected['panel'], '')
+                reopen()
                 self.assertEqual(key('Escape')['panel'], '')
-                for shortcut, action in [('E', 'logout'), ('R', 'reboot'), ('S', 'shutdown')]:
+                self.assertEqual(state()['requests'], [])
+                for shortcut, action in [('L', 'lock'), ('E', 'logout'), ('R', 'reboot'), ('S', 'shutdown')]:
                     reopen()
-                    selected = key(shortcut)
-                    self.assertEqual(selected['choice'], action)
-                    self.assertEqual(selected['focus'], 'power-cancel')
-                    self.assertEqual(selected['requests'], [])
-                    self.assertEqual(key('Right')['focus'], 'power-confirm')
-                    result = key('Space' if shortcut == 'S' else 'Enter' if shortcut == 'R' else 'Return')
+                    result = key(shortcut)
                     self.assertEqual(result['requests'], [{'action': 'power', 'choice': action}])
                     self.assertEqual(result['panel'], '')
-                reopen()
-                result = key('L')
-                self.assertEqual(result['requests'], [{'action': 'power', 'choice': 'lock'}])
-                self.assertEqual(result['panel'], '')
+                for activation in ('Space', 'Enter'):
+                    reopen()
+                    key('Down')
+                    key('Right')
+                    result = key(activation)
+                    self.assertEqual(result['requests'], [{'action': 'power', 'choice': 'shutdown'}])
+                    self.assertEqual(result['panel'], '')
             finally:
                 process.terminate()
                 process.wait(timeout=10)

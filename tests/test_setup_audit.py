@@ -26,6 +26,9 @@ class SetupAuditTest(unittest.TestCase):
         profile.mkdir(parents=True)
         (base / 'profiles.ini').write_text('[Profile0]\nPath=test.default\nIsRelative=1\n')
         installer.apply(self.home)
+        pointer = self.home / '.local/share/icons/Bibata-Modern-Amber/cursors/left_ptr'
+        pointer.parent.mkdir(parents=True)
+        pointer.write_bytes(b'Xcur-fixture')
         audit = module.Audit(root=ROOT, home=self.home)
         with patch.object(audit, 'value'), patch.object(module.subprocess, 'run') as run:
             run.return_value.returncode = 0

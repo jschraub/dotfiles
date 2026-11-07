@@ -1,0 +1,12 @@
+#%PAM-1.0
+# Password-only conversation. Fingerprints run in a separate PAM context.
+# Preserve the existing pam_unix/faillock policy, without auth include login.
+auth      required                 pam_faillock.so  preauth
+auth      [success=1 default=bad]   pam_unix.so      try_first_pass nullok
+auth      [default=die]            pam_faillock.so  authfail
+auth      optional                 pam_permit.so
+auth      required                 pam_env.so
+auth      required                 pam_faillock.so  authsucc
+account   include                  system-auth
+password  include                  system-auth
+session   include                  system-auth

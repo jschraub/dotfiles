@@ -20,7 +20,7 @@ ColumnLayout {
     Component.onCompleted: rebuild()
     RowLayout {
         Label { text: "Keyboard shortcuts"; font.pixelSize: 22; font.weight: Font.DemiBold; Layout.fillWidth: true }
-        Label { text: "SUPER + F1"; color: Theme.muted; font.pixelSize: 10; font.letterSpacing: 1.2 }
+        Label { text: "SUPER + F1"; color: Theme.good; font.pixelSize: 10; font.letterSpacing: 1.2 }
     }
     SearchField {
         id: search; Layout.fillWidth: true; placeholderText: "Search shortcuts, actions or categories…"; focus: true
@@ -81,5 +81,5 @@ ColumnLayout {
             Label { anchors.centerIn: parent; visible: list.count === 0; text: "No matching shortcuts"; color: Theme.muted }
         }
     }
-    Label { text: root.filtered.length + " shortcuts  ·  Reference only — actions never execute here"; font.pixelSize: 11; color: Theme.muted }
+    Label { text: root.filtered.length + " shortcuts\u2003\u2003Reference only — actions never execute here"; font.pixelSize: 11; color: Theme.muted }
 }

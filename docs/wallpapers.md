@@ -12,10 +12,11 @@ It is an AI-generated **5120×2880 PNG export**, upscaled with Lanczos from the
 generator's **1672×941** output and cropped very slightly to exact 16:9. It is not
 native 5K detail. The original generated file is not required at runtime.
 
-Each machine's Hyprland profile sets `ATELIER_WALLPAPER_CONFIG`. The shared startup
-uses it to start Hyprpaper, falling back to the original shared config if unset.
-This avoids changing the shared default or moving existing Stow-owned files.
-`fit_mode = cover` applies to every output on the chosen machine.
+Each machine's Hyprland profile sets `ATELIER_WALLPAPER_CONFIG`. Atelier reads the
+image path from that file and renders a native background surface on every output,
+using preserve-aspect crop (cover). The historical `hyprpaper*.conf` filenames
+remain data files only; Hyprpaper is no longer installed or started. The surface
+appears after image decoding succeeds. There is no alternate renderer/watcher.
 
 For a new machine / after pulling these changes:
 
@@ -27,6 +28,6 @@ HYPR_MACHINE=oki-mecha ./setup.sh backgrounds hyprland
 
 The profile package includes its wallpaper config, and the backgrounds package
 includes the asset. Changing a profile is persistent at the next session start;
-reloading Hyprland alone does not restart an already-running Hyprpaper process.
-Only Hyprpaper was restarted to apply the new wallpaper in the current oki session.
+Atelier refreshes the configured path during its system-state refresh and follows
+output hotplug without a separate wallpaper daemon.
 Hyprlock's Balrog background and the root-owned ReGreet wallpaper are unchanged.

@@ -41,10 +41,12 @@ class HostSetupTest(unittest.TestCase):
         self.assertNotIn('matrix', result.stdout.splitlines())
         self.assertIn('hyprland', result.stdout.splitlines())
 
-    def test_waybar_requires_released_lua_support(self):
-        result = subprocess.run(['bash', '-c', 'source ./setup.sh; echo "${PKGS[waybar]}"'], cwd=ROOT,
-                                check=True, capture_output=True, text=True)
-        self.assertEqual(result.stdout.split()[0], 'waybar>=0.16.0')
+    def test_native_desktop_requires_quickshell_and_not_retired_agents(self):
+        result = subprocess.run(['bash', '-c', 'source ./setup.sh; echo "${PKGS[quickshell]} ${PKGS[hyprland]}"'], cwd=ROOT,
+                                 check=True, capture_output=True, text=True)
+        self.assertEqual(result.stdout.split()[0], 'quickshell>=0.3.2')
+        for retired in ['hyprpaper', 'polkit-gnome', 'waybar', 'swaync']:
+            self.assertNotIn(retired, result.stdout.split())
 
     def test_greeter_never_makes_configuration_greeter_owned(self):
         script = (ROOT / 'install-greetd-regreet.sh').read_text()

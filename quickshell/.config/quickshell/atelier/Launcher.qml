@@ -13,7 +13,7 @@ ColumnLayout {
     RowLayout {
         Layout.fillWidth: true
         Label { text: "Applications"; font.pixelSize: 22; font.weight: Font.DemiBold; Layout.fillWidth: true }
-        Label { text: "SUPER + SPACE"; font.pixelSize: 10; font.letterSpacing: 1.2; color: Theme.muted }
+        Label { text: "SUPER + SPACE"; font.pixelSize: 10; font.letterSpacing: 1.2; color: Theme.good }
     }
     SearchField {
         id: search
@@ -60,6 +60,11 @@ ColumnLayout {
     RowLayout {
         Label { text: root.filtered.length + " applications"; font.pixelSize: 11; color: Theme.muted; Layout.fillWidth: true }
         ActionButton { text: "Keyboard shortcuts ↗"; implicitHeight: 24; onClicked: shell.open("bindings", shell.menuScreen) }
-        Label { text: "↑ ↓  Navigate     ↵  Open     Esc  Close"; font.pixelSize: 11; color: Theme.muted }
+        Label {
+            text: "<font color='" + Theme.good + "'>↑ ↓</font>  Navigate     <font color='" + Theme.good
+                + "'>↵</font>  Open     <font color='" + Theme.good + "'>Esc</font>  Close"
+            textFormat: Text.RichText
+            font.pixelSize: 11; color: Theme.muted
+        }
     }
 }

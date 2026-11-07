@@ -1,6 +1,6 @@
 #!/bin/sh
 # Reconcile the internal laptop panel with the physical lid, then rebuild
-# waybar's per-output bars.
+# Atelier follows display changes without restarting its bars.
 #
 # Called from four places that must all agree: the two lid-switch binds, the
 # monitor.added event, and hypridle's after_sleep_cmd.
@@ -133,41 +133,5 @@ if [ -n "$panel" ] && [ -n "$state" ] && compositor_settled; then
     esac
 fi
 
-# Runs on every reconcile rather than only when the panel changed: a plain
-# external-monitor hotplug moves no lid but still loses the bar.
-#
-# Two hard rules here, both learned by breaking them:
-#
-#  1. NEVER start waybar. An earlier version started one when it saw none, which
-#     raced Hyprland's own `sleep 1 && waybar` autostart and produced TWO bars at
-#     login, one of which then died. Autostart owns starting waybar; this owns
-#     signalling it.
-#
-#  2. Never signal a waybar that is still starting. It builds its per-output bars
-#     during the first seconds, and a reload landing in that window aborts the
-#     process (seen as waybar dumping core moments after login). A young waybar
-#     also needs no reload -- it is already enumerating the current outputs.
-#
-# Serialized for the same reason: two SIGUSR2 inside one reload cycle kills waybar
-# outright, observed 45ms apart. This script runs from several places and
-# monitor.added fires once per output, so back-to-back invocations are normal.
-# Atelier creates/destroys bars from Quickshell.screens; it needs no restart or
-# reload when an output changes. Preserve the old workaround only for rollback.
-if command -v desktop-shell >/dev/null 2>&1 && [ "$(desktop-shell mode)" = quickshell ]; then
-    exit 0
-fi
-pid=$(pgrep -x -o waybar 2>/dev/null || true)
-if [ -n "$pid" ]; then
-    age=$(ps -o etimes= -p "$pid" 2>/dev/null | tr -dc 0-9)
-    if [ -n "$age" ] && [ "$age" -ge 8 ]; then
-        RUNTIME="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
-        (
-            flock 9 || exit 0
-            logger --tag dotfiles-power -- "Requesting Waybar reload after display/lid reconciliation (pid=$pid)" || true
-            pkill -USR2 -x waybar 2>/dev/null || true
-            sleep 2
-        ) 9>"$RUNTIME/lid-display.waybar.lock"
-    fi
-fi
-
+# Atelier follows Quickshell.screens; display changes require no bar signals.
 exit 0

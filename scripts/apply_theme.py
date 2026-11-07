@@ -195,10 +195,12 @@ def main():
     subprocess.run(['python3', str(ROOT / 'scripts/render_theme.py'), '--check'], check=True)
     home = Path.home()
     config = Path(os.environ.get('XDG_CONFIG_HOME') or home / '.config')
+    subprocess.run(['python3', str(ROOT / 'scripts/install_cursor.py')], check=True)
     apply(home, config=config)
     if not args.no_runtime:
         if shutil.which('gsettings'):
-            preferences = {'gtk-theme': 'Atelier', 'color-scheme': 'prefer-dark', 'accent-color': 'yellow', 'font-name': 'Inter 10'}
+            preferences = {'gtk-theme': 'Atelier', 'color-scheme': 'prefer-dark', 'accent-color': 'yellow', 'font-name': 'Inter 10',
+                           'cursor-theme': 'Bibata-Modern-Amber', 'cursor-size': '24'}
             schema = 'org.gnome.desktop.interface'
             keys = subprocess.run(['gsettings', 'list-keys', schema], capture_output=True, text=True, check=True).stdout.splitlines()
             backup_dir = home / '.local/state/atelier'
@@ -221,6 +223,7 @@ def main():
                                        verification.stdout + verification.stderr)
                 print('Hyprland configuration verified.')
             subprocess.run(['hyprctl', 'reload'], check=True)
+            subprocess.run(['hyprctl', 'setcursor', 'Bibata-Modern-Amber', '24'], check=True)
             errors = subprocess.run(['hyprctl', 'configerrors'], capture_output=True, text=True, check=True).stdout.strip()
             if errors:
                 raise RuntimeError('Hyprland reported configuration errors after reload; inspect hyprctl configerrors')

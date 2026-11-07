@@ -4,7 +4,7 @@ Run as your normal user, not with sudo:
 
 ```sh
 ./check-setup.sh                       # default expectations; optional Matrix excluded
-./check-setup.sh hyprland fish waybar tty greetd pam upall
+./check-setup.sh hyprland quickshell fish tty greetd pam upall
 ./check-setup.sh --verbose tty greetd  # include successful checks
 ./check-setup.sh --machine mini-mecha hyprland
 ./check-setup.sh --list
@@ -38,14 +38,10 @@ add checks for the separate system installers.
 - Declared packages must be installed; exact package versions are not pinned.
   Atelier's `quickshell` item requires Quickshell >=0.3.2 and checks its QML,
   desktop-entry terminal preference, and declared backend/UI dependencies. Setup
-  installation is separate from activation; intentionally staying in legacy mode
-  during rollout is not drift. See [Atelier setup](docs/atelier.md).
-  Waybar is an exception: stable >=0.16.0 is required for Lua workspace clicks;
-  `waybar-git` is an accepted fallback. Waybar/Wofi/wlogout are now opt-in legacy
-  items, excluded from default setup/audits along with optional Matrix hardware.
-  `./setup-waybar.sh` migrates a Git install
-  to stable once a sufficiently new stable package is available in the local
-  sync database. `--stable` refuses to fall back, without removing the current bar.
+  installation does not restart a live session. Atelier is the sole UI; old
+  Waybar/Wofi/wlogout setup and fallback paths are retired. Hyprland setup also
+  installs/stows Atelier for native authentication and wallpaper support.
+  See [Atelier setup and retirement](docs/atelier.md). Matrix remains opt-in.
 - Each file in selected Stow packages must resolve to this checkout with matching
   contents. An identical independent copy is still drift (it will not track edits).
   Extra local files and generated state are deliberately ignored.

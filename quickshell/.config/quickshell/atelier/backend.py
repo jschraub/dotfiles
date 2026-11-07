@@ -135,6 +135,26 @@ def batteries(root=Path("/sys/class/power_supply")):
     return result
 
 
+def audio_state(target="@DEFAULT_AUDIO_SINK@"):
+    volume = optional(["wpctl", "get-volume", target])
+    match = re.fullmatch(r"Volume:\s+(\d+(?:\.\d+)?)\s*(\[MUTED\])?", volume)
+    return {"percent": round(float(match[1]) * 100), "muted": bool(match[2])} if match else None
+
+
+def wallpaper_path():
+    selected = os.environ.get("ATELIER_WALLPAPER_CONFIG")
+    if not selected:
+        profile = str((CONFIG / "hypr/hyprland.lua").resolve())
+        selected = CONFIG / "hypr" / ("hyprpaper-oki-mecha.conf" if "hyprland-oki-mecha" in profile else "hyprpaper.conf")
+    try:
+        text = Path(selected).expanduser().read_text()
+        match = re.search(r"^\s*path\s*=\s*(.+?)\s*$", text, re.MULTILINE)
+        path = Path(os.path.expandvars(match[1])).expanduser() if match else None
+        return str(path.resolve()) if path and path.is_file() else ""
+    except OSError:
+        return ""
+
+
 def status(include_system=True):
     state = {}
     queries = {
@@ -146,6 +166,7 @@ def status(include_system=True):
         queries.update({
             "network": network_state,
             "awake": lambda: json.loads(command([str(HELPERS / "dotfiles-keep-awake.sh"), "status"])),
+            "wallpaper": wallpaper_path,
         })
     # Explicit unavailable state; never display a failed read as healthy/muted/off.
     for key, read in queries.items():
@@ -155,9 +176,8 @@ def status(include_system=True):
             state[key] = None
     if not include_system:
         return state
-    volume = optional(["wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"])
-    match = re.fullmatch(r"Volume:\s+(\d+(?:\.\d+)?)\s*(\[MUTED\])?", volume)
-    state["audio"] = {"percent": round(float(match[1]) * 100), "muted": bool(match[2])} if match else None
+    state["audio"] = audio_state()
+    state["microphone"] = audio_state("@DEFAULT_AUDIO_SOURCE@")
     state["battery"] = batteries()
     bluetooth = optional(["bluetoothctl", "show"])
     devices = optional(["bluetoothctl", "devices", "Connected"])
@@ -168,7 +188,7 @@ def status(include_system=True):
             continue
         info = optional(["bluetoothctl", "info", parts[1]])
         battery = re.search(r"Battery Percentage:.*\((\d+)\)", info)
-        connected.append(parts[2] + (f" · {battery[1]}% battery" if battery else ""))
+        connected.append(parts[2] + (f"\u2003{battery[1]}% battery" if battery else ""))
     state["bluetooth"] = {"powered": "Powered: yes" in bluetooth, "connected": connected}
     return state
 
@@ -308,6 +328,11 @@ def action(request):
                  f"{abs(delta)}%{'+' if delta > 0 else '-'}"])
     elif name == "mute":
         command(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"])
+    elif name == "mic-mute":
+        command(["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"])
+    elif name == "mic-volume":
+        percent = max(0, min(100, float(request["percent"])))
+        command(["wpctl", "set-volume", "-l", "1", "@DEFAULT_AUDIO_SOURCE@", f"{percent / 100:.3f}"])
     elif name == "awake":
         command([str(HELPERS / "dotfiles-keep-awake.sh"), "toggle"], timeout=10)
     elif name == "connect":
@@ -354,6 +379,11 @@ def action(request):
 def handle(request):
     try:
         action(request)
+        if request.get("action") in ("volume-step", "mute", "mic-mute"):
+            mic = request["action"] == "mic-mute"
+            value = audio_state("@DEFAULT_AUDIO_SOURCE@" if mic else "@DEFAULT_AUDIO_SINK@")
+            if value:
+                emit("osd", {"kind": "microphone" if mic else "volume", **value})
         emit("result", {"action": request.get("action"), "ok": True})
     except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError, ImportError) as error:
         # CalledProcessError's repr includes argv; don't expose request payloads.
@@ -404,7 +434,7 @@ def main():
                             raise ValueError()
                         # Preserve audio input order, including relative steps,
                         # absolute slider writes and mute; never race wpctl reads.
-                        target = audio_pool if request.get("action") in ("volume", "volume-step", "mute") else pool
+                        target = audio_pool if request.get("action") in ("volume", "volume-step", "mute", "mic-mute", "mic-volume") else pool
                         target.submit(handle, request)
                     except (ValueError, TypeError):
                         emit("notice", "Invalid shell request")

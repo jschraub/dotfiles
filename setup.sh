@@ -38,39 +38,24 @@ STOW_NO_FOLDING=0
 #   STOW[id]    space-separated stow package dirs to link
 #   HANDLER[id] optional function name overriding the generic install+stow
 
-ORDER=(hyprland quickshell waybar wofi wlogout ghostty fish nautilus gaming backgrounds avatars zed opencode theme cloudflare-skills mattpocock-skills matrix greetd tty)
+ORDER=(hyprland quickshell access ghostty fish nautilus gaming backgrounds avatars zed opencode theme cloudflare-skills mattpocock-skills matrix greetd tty)
 
 declare -A LABEL PKGS STOW HANDLER OPTIONAL
 
 LABEL[hyprland]="Hyprland compositor + full hypr environment (common + machine profile)"
-PKGS[hyprland]="hyprland hyprpaper hypridle hyprlock hyprpicker grimblast-git polkit-gnome gnome-keyring brightnessctl playerctl wireplumber xdg-desktop-portal-hyprland ttf-cascadia-code-nerd python jq"
+PKGS[hyprland]="hyprland hypridle hyprlock hyprpicker grimblast-git polkit gnome-keyring brightnessctl playerctl wireplumber xdg-desktop-portal-hyprland ttf-cascadia-code-nerd python jq"
 HANDLER[hyprland]=handle_hyprland
 
 LABEL[quickshell]="Atelier desktop: bar, launcher, shortcuts, panels, network and notifications"
-PKGS[quickshell]="quickshell>=0.3.2 inter-font ttf-cascadia-code-nerd python python-gobject ghostty xdg-terminal-exec networkmanager bluez bluez-utils blueman pavucontrol gnome-network-displays wireplumber jq libnotify"
+PKGS[quickshell]="quickshell>=0.3.2 inter-font ttf-cascadia-code-nerd python python-gobject ghostty xdg-terminal-exec networkmanager bluez bluez-utils blueman pavucontrol gnome-network-displays wireplumber jq libnotify brightnessctl playerctl polkit"
 STOW[quickshell]="quickshell"
 HANDLER[quickshell]=handle_quickshell
 
-LABEL[waybar]="Legacy Waybar status bar (opt-in rollback; includes SwayNC)"
-OPTIONAL[waybar]=1
-# fuzzel/jq/libnotify are what network-menu.sh and vpn-status.sh need; they are
-# declared here rather than relied on transitively so that installing only the
-# waybar package on a fresh machine still yields a working network menu. fuzzel
-# rather than wofi because only fuzzel activates an entry on a single click.
-# 0.16.0 is the first release with Hyprland Lua workspace dispatch support.
-PKGS[waybar]="waybar>=0.16.0 swaync blueman pavucontrol gnome-network-displays fuzzel jq libnotify python-gobject gtk3 gtk-layer-shell wireplumber"
-STOW[waybar]="waybar"
-HANDLER[waybar]=handle_waybar
-
-LABEL[wofi]="Legacy Wofi application launcher (opt-in rollback)"
-OPTIONAL[wofi]=1
-PKGS[wofi]="wofi"
-STOW[wofi]="wofi"
-
-LABEL[wlogout]="Legacy wlogout power menu (opt-in rollback)"
-OPTIONAL[wlogout]=1
-PKGS[wlogout]="wlogout jq"
-STOW[wlogout]="wlogout"
+LABEL[access]="Atelier login and lock screens (stage first; explicit tested activation)"
+OPTIONAL[access]=1
+PKGS[access]="quickshell>=0.3.2 greetd hyprland python inter-font ttf-cascadia-code-nerd"
+STOW[access]="hyprland-common quickshell"
+HANDLER[access]=handle_access
 
 LABEL[ghostty]="Ghostty terminal"
 PKGS[ghostty]="ghostty"
@@ -212,8 +197,26 @@ handle_generic() {
     for s in ${STOW[$id]:-}; do safe_stow "$s"; done
 }
 
+hyprland_packages() {
+    local selected="" package
+    local selector="${XDG_CONFIG_HOME:-$HOME/.config}/dotfiles/lock-screen"
+    if [[ -r "$selector" ]]; then read -r selected < "$selector" || true; fi
+    for package in ${PKGS[hyprland]}; do
+        if [[ "$package" == hyprlock && "$selected" == atelier ]]; then continue; fi
+        printf '%s\n' "$package"
+    done
+}
+
 handle_hyprland() {
-    pkg_install ${PKGS[hyprland]}
+    local -a packages
+    mapfile -t packages < <(hyprland_packages)
+    pkg_install "${packages[@]}"
+    handle_quickshell || return
+    if [[ "$DRY_RUN" == 1 ]]; then
+        info "[dry-run] would install pinned Bibata Modern Amber cursor assets"
+    else
+        python3 "$SCRIPT_DIR/scripts/install_cursor.py" || return
+    fi
     safe_stow editor || return
     safe_stow hyprland-common
 
@@ -284,7 +287,6 @@ handle_opencode() {
 handle_cloudflare_skills() { delegate setup-cloudflare-skills.sh; }
 handle_mattpocock_skills()  { delegate setup-mattpocock-skills.sh; }
 handle_matrix()            { delegate install-matrix.sh; }
-handle_waybar()            { delegate setup-waybar.sh; }
 handle_quickshell() {
     pkg_install ${PKGS[quickshell]} || return
     if [[ "$DRY_RUN" != 1 ]] && ! command -v qs >/dev/null; then
@@ -295,9 +297,28 @@ handle_quickshell() {
     safe_stow quickshell || return
     info "Preview: desktop-shell preview"
     info "Activate when ready: desktop-shell activate"
-    info "Rollback: desktop-shell legacy (keep legacy packages installed)"
+    info "Atelier is the sole desktop UI; retired applications are not installed."
 }
-handle_greetd()            { delegate install-greetd-regreet.sh; }
+handle_greetd() {
+    # Once explicitly migrated, a later setup/all must not restore ReGreet.
+    if [[ -f /etc/atelier/access/greeter-selected ]]; then
+        pkg_install ${PKGS[access]} || return
+        if [[ "$DRY_RUN" == 1 ]]; then
+            info "[dry-run] would update the selected Atelier greeter (no session restart)"
+        else
+            sudo python3 -B "$SCRIPT_DIR/scripts/install_access.py" --account "$(id -un)" || return
+            sudo python3 -B "$SCRIPT_DIR/scripts/install_access.py" --activate-greeter
+        fi
+    else
+        delegate install-greetd-regreet.sh
+    fi
+}
+handle_access() {
+    pkg_install ${PKGS[access]} || return
+    safe_stow hyprland-common || return
+    safe_stow quickshell || return
+    info "Preview, install and test before selecting the replacement: ./scripts/setup-atelier-access.sh"
+}
 handle_tty()               { delegate setup-tty.sh; }
 
 run_item() {
