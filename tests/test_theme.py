@@ -37,6 +37,23 @@ class ThemeTest(unittest.TestCase):
             with self.subTest(path=relative):
                 self.assertEqual((ROOT / relative).read_text(), text)
 
+    def test_link_preserves_sources_under_folded_stow_directories(self):
+        for relative in ['atelier.css', 'themes/Atelier Amber']:
+            with self.subTest(relative=relative), tempfile.TemporaryDirectory() as temp:
+                base = Path(temp)
+                source_dir = base / 'dotfiles/ghostty/.config/ghostty'
+                source = source_dir / relative
+                source.parent.mkdir(parents=True)
+                source.write_text('generated theme\n')
+                config = base / 'home/.config'
+                config.mkdir(parents=True)
+                (config / 'ghostty').symlink_to(source_dir, target_is_directory=True)
+                target = config / 'ghostty' / relative
+                apply.link(source, target)
+                self.assertFalse(source.is_symlink(), 'Installer replaced a tracked source with a symlink')
+                self.assertEqual(source.read_text(), 'generated theme\n')
+                self.assertEqual(list(source.parent.glob('*.pre-atelier.*')), [])
+
     def test_neutral_surfaces_and_readable_text(self):
         colors = json.loads((ROOT / 'theme/palette.json').read_text())['colors']
         def luminance(value):

@@ -25,7 +25,10 @@ def backup(path):
 
 
 def link(source, target):
-    if target.is_symlink() and target.resolve() == source.resolve():
+    # Stow can link a parent directory instead of each file. In that layout
+    # target is a regular file resolving to source: replacing it corrupts the
+    # checkout and creates a relative symlink based on the wrong parent path.
+    if target.resolve() == source.resolve():
         return
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists() or target.is_symlink():
