@@ -60,6 +60,17 @@ class KeepAwakeStatusTest(unittest.TestCase):
             with self.subTest(response=response):
                 self.assertEqual(self.status(response)['class'], 'error')
 
+    def test_tooltips_use_short_explicit_lines_and_nonbreaking_terms(self):
+        own = dict(who='dotfiles-keep-awake', uid=os.getuid(), what='idle', mode='block')
+        for response, state, action in [('[]', 'off', 'on'), (json.dumps([own]), 'on', 'off')]:
+            hint = self.status(response)['tooltip']
+            lines = hint.splitlines()
+            self.assertEqual(lines[0], 'Keep\u00a0awake: ' + state)
+            self.assertTrue(lines[1].startswith('Idle\u00a0sleep'))
+            self.assertEqual(lines[-1], 'Click to turn ' + action)
+            self.assertNotIn('cup', hint)
+            self.assertTrue(all(len(line) <= 32 for line in lines), hint)
+
 
 @unittest.skipUnless(os.environ.get('DOTFILES_LIVE_TESTS') == '1',
                      'set DOTFILES_LIVE_TESTS=1 to exercise the real user manager/logind')

@@ -35,20 +35,20 @@ case "${1:-status}" in
         ;;
     status)
         if ! inhibitors=$(systemd-inhibit --list --json=short --no-pager 2>/dev/null); then
-            printf '%s\n' '{"text":"!","class":"error","tooltip":"Keep awake: cannot query logind"}'
+            printf '%s\n' '{"text":"!","class":"error","tooltip":"Keep\u00a0awake\nCannot query logind"}'
             exit 0
         fi
         if ! active=$(jq -r --arg who "$who" --argjson uid "$(id -u)" \
             'if type != "array" then error("expected inhibitor array") else
                 any(.[]; .who == $who and .uid == $uid and .what == "idle" and .mode == "block")
              end' <<< "$inhibitors" 2>/dev/null) || [[ "$active" != true && "$active" != false ]]; then
-            printf '%s\n' '{"text":"!","class":"error","tooltip":"Keep awake: invalid logind response"}'
+            printf '%s\n' '{"text":"!","class":"error","tooltip":"Keep\u00a0awake\nInvalid logind response"}'
             exit 0
         fi
         if [[ "$active" == true ]]; then
-            printf '%s\n' '{"text":"󰅶","class":"activated","tooltip":"Full cup: keep awake\nSurvives bar reloads; manual suspend still allowed\nClick to allow idle sleep"}'
+            printf '%s\n' '{"text":"󰅶","class":"activated","tooltip":"Keep\u00a0awake: on\nIdle\u00a0sleep is blocked\nYou can still suspend manually\nClick to turn off"}'
         else
-            printf '%s\n' '{"text":"󰛊","class":"deactivated","tooltip":"Empty cup: allow idle sleep\nClick to keep awake"}'
+            printf '%s\n' '{"text":"󰛊","class":"deactivated","tooltip":"Keep\u00a0awake: off\nIdle\u00a0sleep is allowed\nClick to turn on"}'
         fi
         ;;
     toggle)

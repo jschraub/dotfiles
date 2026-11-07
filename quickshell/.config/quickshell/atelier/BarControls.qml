@@ -32,7 +32,7 @@ RowLayout {
         visible: !!root.services && root.services.trayItems.length > 0
         horizontalPadding: Theme.barButtonPadding
         text: "󰀻"
-        hint: "System tray"
+            hint: "System\u00a0tray"
         selected: shell.panel === "tray"
         onClicked: shell.open("tray", root.output)
     }
@@ -45,7 +45,7 @@ RowLayout {
             horizontalPadding: Theme.barButtonPadding
             tabularDigits: true
             text: root.audio ? (root.audio.muted ? "󰝟  Muted" : "󰕾  " + root.audio.percent + "%") : "󰕾  —"
-            hint: "Volume\nScroll to adjust\nRight-click for advanced settings"
+            hint: "Volume\nScroll to adjust\nRight-click for audio\u00a0settings"
             selected: shell.panel === "audio"
             textColor: root.audio && root.audio.muted ? Theme.muted : Theme.text
             onClicked: shell.open("audio", root.output)
@@ -64,10 +64,10 @@ RowLayout {
             text: root.networkIcon
             textColor: root.vpn ? Theme.good : root.network && root.network.kind !== "offline" ? Theme.text : Theme.muted
             hint: root.network ? root.network.label
-                + (root.network.signal !== null ? "\n" + root.network.signal + "% signal" : "")
+                + (root.network.signal !== null ? "\n" + root.network.signal + "%\u00a0signal" : "")
                 + (root.network.address ? "\n" + root.network.address : "")
-                + (root.vpn ? "\nVPN protected\u2003" + root.network.vpn : "\nVPN not connected")
-                + "\nOpen connectivity settings" : "Network unavailable\nOpen connectivity settings"
+                + (root.vpn ? "\nVPN\u00a0protected\n" + root.network.vpn : "\nVPN not\u00a0connected")
+                + "\nOpen connectivity\u00a0settings" : "Network\u00a0unavailable\nOpen connectivity\u00a0settings"
             selected: shell.panel === "network"
             Accessible.name: "Network: " + root.networkCaption + (root.vpn ? ", VPN protected" : ", VPN not connected")
             onClicked: shell.open("network", root.output)
@@ -76,14 +76,14 @@ RowLayout {
 
     RowLayout {
         objectName: "energy-group"
-        spacing: 2
+        spacing: root.spacing
         ActionButton {
             objectName: "keep-awake-control"
             horizontalPadding: Theme.barButtonPadding
             text: !shell.state.awake || shell.state.awake.class === "error" ? "!" : root.awake ? "󰅶" : "󰛊"
             textColor: Theme.muted
             selected: root.awake
-            hint: shell.state.awake ? shell.state.awake.tooltip : "Keep-awake status unavailable"
+            hint: shell.state.awake ? shell.state.awake.tooltip : "Keep\u00a0awake\nStatus\u00a0unavailable"
             enabled: !!shell.state.awake && shell.state.awake.class !== "error"
             onClicked: shell.send("awake")
         }
@@ -94,8 +94,8 @@ RowLayout {
             font.features: ({ "tnum": 1 })
             color: !root.battery ? Theme.muted : root.battery.percent <= 15 ? Theme.danger
                 : root.battery.percent <= 30 ? Theme.accent : root.battery.status === "Charging" ? Theme.good : Theme.muted
-            Layout.leftMargin: 2
-            Layout.rightMargin: 2
+            Layout.leftMargin: Theme.barButtonPadding
+            Layout.rightMargin: Theme.barButtonPadding
         }
     }
 
@@ -104,9 +104,10 @@ RowLayout {
         horizontalPadding: Theme.barButtonPadding
         text: root.dnd ? "󰂛" : root.notificationCount > 0 ? "󰂚" : "󰂜"
         textColor: Theme.muted
-        hint: (root.dnd ? "Do not disturb is on" : "Notifications")
-            + (root.notificationCount ? "\n" + root.notificationCount + " in history" : "\nAll caught up")
-            + "\nRight-click to toggle do not disturb"
+        hint: "Notifications"
+            + (root.notificationCount ? "\n" + root.notificationCount + "\u00a0in history" : "\nAll caught\u00a0up")
+            + "\nDo\u00a0not\u00a0disturb: " + (root.dnd ? "on" : "off")
+            + "\nRight-click to turn " + (root.dnd ? "off" : "on")
         selected: shell.panel === "notifications" || root.dnd || root.notificationCount > 0
         onClicked: shell.open("notifications", root.output)
         TapHandler {
@@ -129,7 +130,7 @@ RowLayout {
         horizontalPadding: Theme.barButtonPadding
         text: "⏻"
         textColor: Theme.muted
-        hint: "Session & power"
+        hint: "Session\u00a0&\u00a0power"
         hintShortcut: "Super+Delete"
         selected: shell.panel === "power"
         onClicked: shell.open("power", root.output)

@@ -47,7 +47,7 @@ PanelWindow {
                     textColor: windowCount > 0 ? Theme.accent : Theme.muted
                     text: String(modelData)
                     hint: "Workspace\u00a0" + modelData + "\n" + (windowCount === 0 ? "Empty"
-                        : windowCount + (windowCount === 1 ? " window" : " windows"))
+                        : windowCount + (windowCount === 1 ? "\u00a0window" : "\u00a0windows"))
                     background: Rectangle {
                         radius: 7
                         color: workspaceButton.down ? Theme.hover

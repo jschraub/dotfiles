@@ -65,6 +65,8 @@ ShellRoot {
             controls.dateTime = new Date(2026, 8, 28, 23, 58);
         }
         function status(): string {
+            const battery = find(controls, "battery-status");
+            const batteryPoint = battery.mapToGlobal(0, 0);
             const names = ["volume-control", "network-control", "keep-awake-control",
                            "notifications-control", "clock-control", "power-control"];
             const items = names.map(name => {
@@ -90,7 +92,13 @@ ShellRoot {
                 bluetoothOnBar: !!find(controls, "bluetooth-control"),
                 bluetoothInMenu: !!find(connectivity, "bluetooth-action"), castInMenu: !!find(connectivity, "cast-action"),
                 lastAction: fakeShell.lastAction, lastTarget: fakeShell.lastTarget, panel: fakeShell.panel,
+                battery: { visible: battery.visible, x: batteryPoint.x, width: battery.width },
                 castOnBar: !!find(controls, "cast-action") });
+        }
+        function battery(percent: int): void {
+            const next = JSON.parse(JSON.stringify(fakeShell.state));
+            next.battery = percent >= 0 ? [{ percent: percent, status: "Discharging" }] : [];
+            fakeShell.state = next;
         }
         function invokeMenu(name: string): void { fakeShell.panel = "network"; find(connectivity, name).clicked(); }
         function notifications(count: int, dnd: bool): void {

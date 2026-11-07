@@ -141,6 +141,18 @@ class AtelierGuiTest(unittest.TestCase):
                     self.assertEqual(ipc("transport", kind).returncode, 0)
                     icons[kind] = json.loads(ipc("status").stdout)["items"][1]["text"]
                 self.assertEqual(len(set(icons.values())), 3)
+                for percent in [8, 55, 100]:
+                    self.assertEqual(ipc("battery", str(percent)).returncode, 0)
+                    time.sleep(0.05)
+                    state = json.loads(ipc("status").stdout)
+                    battery = state["battery"]
+                    awake, notifications = state["items"][2:4]
+                    self.assertTrue(battery["visible"])
+                    left_gap = battery["x"] - awake["x"] - awake["width"]
+                    right_gap = notifications["x"] - battery["x"] - battery["width"]
+                    self.assertAlmostEqual(left_gap, 14, delta=1)
+                    self.assertAlmostEqual(right_gap, 14, delta=1)
+                self.assertEqual(ipc("battery", "-1").returncode, 0)
                 self.assertEqual(icons["ethernet"], items[1]["text"])
                 for count, dnd, icon in [(0, False, "\U000f009c"), (2, False, "\U000f009a"),
                                          (0, False, "\U000f009c"), (0, True, "\U000f009b"),
