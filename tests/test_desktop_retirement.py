@@ -2,6 +2,7 @@
 import importlib.util
 from pathlib import Path
 import tempfile
+import subprocess
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -11,6 +12,31 @@ spec.loader.exec_module(retire)
 
 
 class RetirementTest(unittest.TestCase):
+    def test_cleanup_removes_actual_provider_package_name(self):
+        script = (ROOT / 'scripts/cleanup-atelier.sh').read_text()
+        stage = script.split('stage "Review and uninstall retired applications"', 1)[1].split('\npause', 1)[0]
+        fixture = '''
+set -e
+installed=(); planned=()
+pacman() {
+  case "$1" in
+    -Q|-Qq)
+      [[ "$2" == waybar ]] || return 1
+      if [[ "$1" == -Qq ]]; then echo waybar-git; else echo 'waybar-git 1.0'; fi ;;
+    -Rp)
+      [[ "${@: -1}" == waybar-git ]] || { echo 'target not found: waybar' >&2; return 1; }
+      echo waybar-git ;;
+    *) return 1 ;;
+  esac
+}
+say() { :; }
+confirm() { return 0; }
+sudo() { printf 'REMOVAL'; printf ' %s' "$@"; printf '\\n'; }
+'''
+        result = subprocess.run(['bash', '-c', fixture + stage], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('REMOVAL pacman -R -- waybar-git', result.stdout)
+
     def test_only_our_retired_links_are_selected_including_dangling_links(self):
         with tempfile.TemporaryDirectory() as directory:
             home = Path(directory) / 'home'

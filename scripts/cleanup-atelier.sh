@@ -220,7 +220,9 @@ pause
 
 stage "Review and uninstall retired applications"
 for package in waybar swaync wofi wlogout fuzzel hyprpaper polkit-gnome; do
-  if pacman -Q "$package" >/dev/null 2>&1; then installed+=("$package"); fi
+  # Queries accept providers (e.g. waybar-git provides waybar), but removal
+  # requires the actual installed package name, not the capability queried.
+  if package="$(pacman -Qq "$package" 2>/dev/null)"; then installed+=("$package"); fi
 done
 if (( ${#installed[@]} )); then
   plan="$(pacman -Rp --print-format '%n' -- "${installed[@]}")"
