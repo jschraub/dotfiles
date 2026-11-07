@@ -47,7 +47,7 @@ PKGS[hyprland]="hyprland hypridle hyprlock hyprpicker grimblast-git polkit gnome
 HANDLER[hyprland]=handle_hyprland
 
 LABEL[quickshell]="Atelier desktop: bar, launcher, shortcuts, panels, network and notifications"
-PKGS[quickshell]="quickshell>=0.3.2 inter-font ttf-cascadia-code-nerd python python-gobject ghostty xdg-terminal-exec networkmanager bluez bluez-utils blueman pavucontrol gnome-network-displays wireplumber jq libnotify brightnessctl playerctl polkit"
+PKGS[quickshell]="quickshell>=0.3.2 inter-font ttf-cascadia-code-nerd python python-gobject ghostty xdg-terminal-exec networkmanager bluez bluez-utils blueman pavucontrol gnome-network-displays wireplumber jq libnotify brightnessctl playerctl polkit wl-clipboard"
 STOW[quickshell]="quickshell"
 HANDLER[quickshell]=handle_quickshell
 

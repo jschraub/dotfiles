@@ -77,7 +77,7 @@ class KeybindingsTest(unittest.TestCase):
         '''
         result = subprocess.run(["lua", "-", str(config_dir)], input=lua,
                                 text=True, capture_output=True, check=True)
-        self.assertEqual(result.stdout.splitlines(), ["Show searchable Hyprland keybindings", "64"])
+        self.assertEqual(result.stdout.splitlines(), ["Show searchable Hyprland keybindings", "65"])
 
 
 if __name__ == "__main__":

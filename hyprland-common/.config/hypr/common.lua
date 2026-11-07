@@ -216,7 +216,7 @@ hl.bind(mainMod .. " + Q",         hl.dsp.window.close(), { description = "Close
 hl.bind(mainMod .. " + backspace", hl.dsp.exec_cmd(lidDisplay .. ' --all-on && sleep 0.5 && (command -v hyprshutdown >/dev/null 2>&1 && hyprshutdown || hyprctl dispatch \'hl.dsp.exit()\')'), { description = "Exit Hyprland session" })
 hl.bind(mainMod .. " + delete",    hl.dsp.exec_cmd("~/.local/bin/desktop-shell toggle power"), { description = "Open power menu (logout / reboot / shutdown)" })
 hl.bind(mainMod .. " + E",         hl.dsp.exec_cmd(fileManager), { description = "Open file manager (Nautilus)" })
--- Keep Super+V free for a future clipboard-history picker.
+hl.bind(mainMod .. " + V", hl.dsp.exec_cmd("~/.local/bin/desktop-shell toggle clipboard"), { description = "Open clipboard history picker" })
 hl.bind(mainMod .. " + SHIFT + space", hl.dsp.window.float({ action = "toggle" }), { description = "Toggle floating window" })
 hl.bind(mainMod .. " + space",     hl.dsp.exec_cmd(menu), { description = "Open application launcher" })
 hl.bind(mainMod .. " + P",         hl.dsp.window.pseudo(), { description = "Toggle pseudo tiling" })

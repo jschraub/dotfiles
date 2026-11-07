@@ -42,7 +42,7 @@ def category_for(binding):
         if modifiers == 64:
             if key == "f1":
                 return "Help"
-            if key in ("return", "e", "space", "b", "w", "g", "h"):
+            if key in ("return", "e", "space", "b", "w", "g", "h", "v"):
                 return "Applications"
             if key in ("l", "backspace", "delete"):
                 return "Session & power"

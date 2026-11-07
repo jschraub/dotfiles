@@ -229,7 +229,7 @@ class AtelierGuiTest(unittest.TestCase):
                     time.sleep(0.1)
                 self.assertIsNone(process.poll(), "QML did not load")
                 self.assertEqual(ipc("health").stdout.strip(), "ready")
-                for name in ["launcher", "bindings", "audio", "audioDevices", "bluetooth", "media", "tray", "calendar", "network", "notifications", "power"]:
+                for name in ["launcher", "bindings", "audio", "audioDevices", "bluetooth", "media", "tray", "calendar", "network", "notifications", "power", "clipboard"]:
                     with self.subTest(panel=name):
                         self.assertEqual(ipc("toggle", name).returncode, 0)
                         time.sleep(0.4)

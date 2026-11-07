@@ -41,7 +41,7 @@ case "${1:-start}" in
     toggle)
         panel="${2:-launcher}"
         case "$panel" in
-            launcher|bindings|power|audio|audioDevices|bluetooth|media|tray|network|calendar|notifications) ;;
+            launcher|bindings|power|audio|audioDevices|bluetooth|media|tray|network|calendar|notifications|clipboard) ;;
             *) echo "Unknown Atelier panel: $panel" >&2; exit 2 ;;
         esac
         if ! "$qs" ipc -c atelier call shell toggle "$panel"; then

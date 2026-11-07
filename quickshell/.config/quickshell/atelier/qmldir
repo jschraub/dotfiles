@@ -25,6 +25,8 @@ AccessCard 1.0 AccessCard.qml
 AccessScene 1.0 AccessScene.qml
 LockController 1.0 LockController.qml
 GreeterController 1.0 GreeterController.qml
+ClipboardService 1.0 ClipboardService.qml
+ClipboardPanel 1.0 ClipboardPanel.qml
 NetworkPanel 1.0 NetworkPanel.qml
 CalendarPanel 1.0 CalendarPanel.qml
 PowerPanel 1.0 PowerPanel.qml
