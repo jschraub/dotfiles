@@ -1,4 +1,4 @@
-function upall --description 'Update repository packages, AUR packages, Flatpaks, and Cachy-Update'
+function upall --description 'Update system packages, Flatpaks, Atelier dotfiles, and Cachy-Update'
     set -l failed
     set -g __upall_deferred
     set -e __upall_last_log
@@ -25,6 +25,17 @@ function upall --description 'Update repository packages, AUR packages, Flatpaks
     or set -a failed flatpak
 
     echo "---"
+    if test (count $failed) -eq 0
+        echo "Updating Atelier desktop configuration..."
+        # Normal-user process without prompts. Never route a
+        # checkout-owned script through the privileged package-update gate.
+        __upall_desktop_update
+        or set -a failed dotfiles
+    else
+        echo "Skipping desktop configuration because package updates failed."
+    end
+
+    echo "---"
     # paru and Flatpak do not update Cachy-Update's cached state, so refresh it
     # now rather than leaving its notification stale until the daily check.
     if type -q arch-update
@@ -49,6 +60,19 @@ function upall --description 'Update repository packages, AUR packages, Flatpaks
         return 0
     end
     echo "All updates complete!"
+end
+
+function __upall_desktop_update --description 'Run the routine updater from this dotfiles checkout'
+    set -l root "$DOTFILES_DIR"
+    if test -z "$root"
+        set -l definition (path resolve -- (status filename))
+        set root (path resolve -- (path dirname -- "$definition")/../../../..)
+    end
+    if not test -x "$root/update.sh"
+        echo "upall: routine updater not found at $root/update.sh; set DOTFILES_DIR to your checkout." >&2
+        return 1
+    end
+    "$root/update.sh" --non-interactive
 end
 
 function __upall_repo_upgrade --description 'Upgrade repository packages and retry known safe replacements'

@@ -1,5 +1,9 @@
 # Checking setup drift
 
+For routine updates on an already-installed desktop, use [`./update.sh`](docs/updates.md)
+or `upall`. Its `--check` and `--dry-run` modes remain read-only; `setup.sh` stays
+the initial-installation interface.
+
 Run as your normal user, not with sudo:
 
 ```sh

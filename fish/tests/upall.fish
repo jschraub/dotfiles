@@ -3,6 +3,14 @@
 set -g test_state (mktemp -d)
 set -gx XDG_STATE_HOME "$test_state/state"
 source (path resolve (path dirname (status filename))/../.config/fish/functions/upall.fish)
+functions --copy __upall_desktop_update __upall_real_desktop_update
+
+function __upall_desktop_update
+    set -g test_desktop_called 1
+    if test "$test_case" = desktop-failure
+        return 1
+    end
+end
 
 function assert --argument-names condition message
     if not eval $condition
@@ -92,6 +100,7 @@ assert 'contains -- "paru --pacman /usr/local/libexec/upall-pacman --aur -S --ne
 assert 'test -f "$test_failed_logs[1]"' 'failed AUR output should be retained'
 assert 'test "$test_flatpak_called" = 1' 'Flatpak updates should continue after an AUR failure'
 assert 'test "$test_arch_update_called" = 1' 'Cachy-Update status should be refreshed'
+assert 'test "$test_desktop_called" = 1' 'desktop updater should run after package updates'
 
 set -g test_case repo-replacement
 set -g test_pending replacement
@@ -125,14 +134,43 @@ assert 'test $no_updates_status -eq 0' 'empty Paru query with status 1 means no 
 assert 'grep -q "No AUR updates available" "$test_state/no-aur-updates.log"' 'empty AUR result should be explained'
 
 set -g test_case aur-query-error
+set -e test_desktop_called
 upall >"$test_state/aur-query-error.log" 2>&1
 set -g query_error_status $status
 assert 'test $query_error_status -eq 1' 'AUR query errors must still fail'
 assert 'grep -q "could not contact AUR" "$test_state/aur-query-error.log"' 'query diagnostics must be preserved'
+assert 'not set -q test_desktop_called' 'desktop deployment should be skipped after package failure'
 
 set -g test_case aur-query-unexpected-status
 upall >"$test_state/aur-query-status.log" 2>&1
 set -g query_status $status
 assert 'test $query_status -eq 1' 'unexpected query exit codes must still fail even without diagnostics'
+
+set -g test_case desktop-failure
+set -g test_pending good
+upall >"$test_state/desktop-failure.log" 2>&1
+set -g desktop_status $status
+assert 'test $desktop_status -eq 1' 'desktop updater failure must propagate'
+assert 'grep -q "Updates finished with failures: dotfiles" "$test_state/desktop-failure.log"' 'desktop failure should be named'
+
+# Exercise the actual helper only against a disposable fake updater.
+mkdir -p "$test_state/checkout"
+printf '#!/bin/sh\nprintf "%%s\\n" "desktop-fixture $*"\nexit 7\n' >"$test_state/checkout/update.sh"
+chmod +x "$test_state/checkout/update.sh"
+set -gx DOTFILES_DIR "$test_state/checkout"
+__upall_real_desktop_update >"$test_state/desktop-helper.log"
+set -g helper_status $status
+assert 'test $helper_status -eq 7' 'helper should preserve updater exit status'
+assert 'grep -q desktop-fixture "$test_state/desktop-helper.log"' 'helper should run chosen checkout as normal user'
+assert 'grep -q -- --non-interactive "$test_state/desktop-helper.log"' 'upall must disable updater prompts'
+set -e DOTFILES_DIR
+
+mkdir -p "$test_state/checkout/fish/.config/fish/functions"
+cp (path resolve (path dirname (status filename))/../.config/fish/functions/upall.fish) "$test_state/checkout/fish/.config/fish/functions/upall.fish"
+source "$test_state/checkout/fish/.config/fish/functions/upall.fish"
+__upall_desktop_update >"$test_state/desktop-discovery.log"
+set -g discovery_status $status
+assert 'test $discovery_status -eq 7' 'helper should discover checkout from its own definition without an override'
+assert 'grep -q desktop-fixture "$test_state/desktop-discovery.log"' 'discovered updater should execute'
 
 rm -rf "$test_state"
