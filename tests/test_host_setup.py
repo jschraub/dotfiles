@@ -10,6 +10,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class HostSetupTest(unittest.TestCase):
+    def test_window_border_matches_menu_control_outline(self):
+        common = (ROOT / 'hyprland-common/.config/hypr/common.lua').read_text()
+        self.assertRegex(common, r'border_size\s*=\s*1\s*,')
+        button = (ROOT / 'quickshell/.config/quickshell/atelier/ActionButton.qml').read_text()
+        self.assertIn('border.width: root.visualFocus ? 1 : 0', button)
+
     def test_wallpaper_selection_is_machine_specific(self):
         shared = (ROOT / 'hyprland-common/.config/hypr/hyprpaper.conf').read_text()
         self.assertIn('path = ~/.config/backgrounds/tolkien/mordor.jpg', shared)

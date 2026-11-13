@@ -40,7 +40,29 @@ ShellRoot {
             next.workspaces[0].windows = windows;
             fakeShell.state = next;
         }
+        function preview(enabled: bool): void { fakeShell.preview = enabled; }
         function status(): string {
+            const applications = find(bar.contentItem, "applications-control");
+            const combined = find(applications.contentItem, "button-label");
+            const icon = find(applications.contentItem, "applications-icon") || combined;
+            const caption = find(applications.contentItem, "applications-caption") || combined;
+            function inkCenter(label, text) {
+                metrics.font = label.font; metrics.text = text;
+                const ink = metrics.tightBoundingRect;
+                return label.mapToItem(applications, 0, 0).y + label.baselineOffset + ink.y + ink.height / 2;
+            }
+            const applicationGeometry = { height: applications.height, iconCenter: inkCenter(icon, "▦"),
+                captionCenter: inkCenter(caption, fakeShell.preview ? "Atelier\u2003Preview" : "Applications"),
+                leftPadding: applications.leftPadding, rightPadding: applications.rightPadding };
+            metrics.font = icon.font; metrics.text = "▦";
+            const iconBounds = { x: metrics.tightBoundingRect.x, width: metrics.tightBoundingRect.width };
+            const iconPosition = icon.mapToItem(applications, 0, 0);
+            applicationGeometry.inkLeft = iconPosition.x + iconBounds.x;
+            metrics.font = caption.font; metrics.text = caption.text;
+            const captionBounds = metrics.tightBoundingRect;
+            const captionPosition = caption.mapToItem(applications, 0, 0);
+            applicationGeometry.inkRight = applications.width - captionPosition.x - captionBounds.x - captionBounds.width;
+            applicationGeometry.gap = captionPosition.x + captionBounds.x - iconPosition.x - iconBounds.x - iconBounds.width;
             const entries = [1, 2, 3, 4, 5, 11, 101].map(number => {
                 const button = find(bar.contentItem, "workspace-" + number);
                 const label = find(button.contentItem, "button-label");
@@ -56,7 +78,7 @@ ShellRoot {
                     advance: metrics.advanceWidth, inkLeft: left,
                     inkRight: button.width - left - metrics.tightBoundingRect.width };
             });
-            return JSON.stringify({ width: bar.width, entries: entries,
+            return JSON.stringify({ width: bar.width, entries: entries, applications: applicationGeometry,
                 accent: Atelier.Theme.accent.toString(), muted: Atelier.Theme.muted.toString(), raised: Atelier.Theme.raised.toString() });
         }
     }

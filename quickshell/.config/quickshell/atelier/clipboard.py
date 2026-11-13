@@ -22,6 +22,7 @@ MAX_TEXT = 256 * 1024
 MAX_IMAGE = 8 * 1024 * 1024
 MAX_BYTES = 16 * 1024 * 1024
 MAX_ITEMS = 50
+EXPIRY_OPTIONS = (0, 300, 1800, 3600)
 MAX_LINE = MAX_IMAGE * 4 // 3 + 4096
 PNG = b'\x89PNG\r\n\x1a\n'
 
@@ -52,8 +53,30 @@ def identify(kind, data):
     raise ValueError('Unsupported clipboard type')
 
 
+def elapsed_time():
+    # Count suspend time too; wall-clock corrections must not extend retention.
+    return time.clock_gettime(time.CLOCK_BOOTTIME)
+
+
+def expiry_value(value):
+    if type(value) is not int or value not in EXPIRY_OPTIONS:
+        raise ValueError('Unsupported history expiry')
+    return value
+
+
+def save_expiry(path, value):
+    value = expiry_value(value)
+    descriptor, temporary = tempfile.mkstemp(prefix='.atelier-expiry-', dir=path.parent)
+    try:
+        with os.fdopen(descriptor, 'w') as output:
+            output.write(str(value) + '\n')
+        os.replace(temporary, path)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+
+
 class History:
-    def __init__(self, *, max_items=MAX_ITEMS, max_bytes=MAX_BYTES):
+    def __init__(self, *, max_items=MAX_ITEMS, max_bytes=MAX_BYTES, clock=elapsed_time):
         self.entries = []
         self.paused = False
         self.epoch = 0
@@ -61,9 +84,27 @@ class History:
         self.lock = threading.RLock()
         self.blocked = {}  # Brief tombstones reject delayed delete/clear echoes.
         self.echo = None
+        self.clock = clock
+        self.expiry_seconds = 0
+
+    def set_expiry(self, value):
+        with self.lock:
+            self.expiry_seconds = expiry_value(value)
+            self.expire()
+
+    def expire(self):
+        with self.lock:
+            if not self.expiry_seconds:
+                return False
+            expired = [entry['id'] for entry in self.entries
+                       if self.clock() - entry['received'] >= self.expiry_seconds]
+            for identifier in expired:
+                self.remove(identifier)
+            return bool(expired)
 
     def offer(self):
         with self.lock:
+            self.expire()
             return {'accept': not self.paused, 'epoch': self.epoch}
 
     def _dispose(self, entry):
@@ -72,6 +113,7 @@ class History:
 
     def add(self, kind, data, epoch):
         with self.lock:
+            self.expire()
             if self.paused or epoch != self.epoch:
                 return False
             metadata = identify(kind, data)
@@ -85,12 +127,14 @@ class History:
                 return False
             old = next((entry for entry in self.entries if entry['digest'] == digest), None)
             if old:
+                old['received'] = self.clock()
                 self.entries.remove(old)
                 self.entries.insert(0, old)
                 return True
             if len(data) > self.max_bytes:
                 return False
-            entry = {'id': uuid.uuid4().hex, 'kind': kind, 'data': data, 'digest': digest, **metadata}
+            entry = {'id': uuid.uuid4().hex, 'kind': kind, 'data': data, 'digest': digest,
+                     'received': self.clock(), **metadata}
             if kind == 'image':
                 # Anonymous memory, not a thumbnail/history file on disk. Qt
                 # receives a /proc path, never a data URL that could enter logs.
@@ -111,6 +155,7 @@ class History:
 
     def snapshot(self, query='', *, visible=True):
         with self.lock:
+            self.expire()
             rows = []
             if visible:
                 needle = query.casefold()
@@ -120,12 +165,15 @@ class History:
                     if needle not in label.casefold():
                         continue
                     row = {'id': entry['id'], 'kind': entry['kind'], 'size': len(entry['data']),
-                           'label': label[:240], 'text': text[:16384], 'truncated': len(text) > 16384}
+                           'label': label[:240], 'labelTruncated': len(label) > 240,
+                           'text': text[:16384], 'truncated': len(text) > 16384,
+                           'characters': len(text), 'previewCharacters': min(len(text), 16384)}
                     if entry['kind'] == 'image':
                         row.update(width=entry['width'], height=entry['height'],
                                    preview=f"file:///proc/{os.getpid()}/fd/{entry['fd']}")
                     rows.append(row)
-            return {'items': rows, 'count': len(self.entries), 'paused': self.paused}
+            return {'items': rows, 'count': len(self.entries), 'paused': self.paused,
+                    'expirySeconds': self.expiry_seconds}
 
     def pause(self, value):
         with self.lock:
@@ -146,6 +194,7 @@ class History:
 
     def copy(self, identifier):
         with self.lock:
+            self.expire()
             entry = next((entry for entry in self.entries if entry['id'] == identifier), None)
             if not entry:
                 raise ValueError('Clipboard item is no longer available')
@@ -219,6 +268,9 @@ def serve():
     scope = hashlib.sha256(os.environ.get('WAYLAND_DISPLAY', '').encode()).hexdigest()[:16]
     pause_file = Path(runtime) / f'atelier-clipboard-{scope}.paused'
     history.paused = pause_file.exists()
+    expiry_file = Path(runtime) / f'atelier-clipboard-{scope}.expiry'
+    if expiry_file.exists():
+        history.set_expiry(expiry_value(int(expiry_file.read_text())))
     with tempfile.TemporaryDirectory(prefix='atelier-clipboard-', dir=runtime) as directory:
         path = str(Path(directory) / 'capture.sock')
         with socket.socket(socket.AF_UNIX) as server:
@@ -272,7 +324,7 @@ def serve():
                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
             def watch_health():
                 while not stop.wait(2):
-                    changed = False
+                    changed = history.expire()
                     for index, child in enumerate(watchers):
                         if child.poll() is not None:
                             changed = True
@@ -314,6 +366,10 @@ def serve():
                             history.remove(str(request['id']))
                         elif action == 'clear':
                             history.remove()
+                        elif action == 'expiry':
+                            value = expiry_value(request['seconds'])
+                            save_expiry(expiry_file, value)
+                            history.set_expiry(value)
                         elif action == 'copy':
                             history.copy(str(request['id']))
                             emit('copied')

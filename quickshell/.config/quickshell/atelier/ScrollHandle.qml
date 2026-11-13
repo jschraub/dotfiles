@@ -11,7 +11,7 @@ Controls.ScrollBar {
         radius: 2
         color: root.pressed ? Theme.accent : root.hovered ? Theme.muted : Theme.line
         opacity: root.active || root.hovered ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 120 } }
+        Behavior on opacity { enabled: !Theme.reducedMotion; NumberAnimation { duration: 120 } }
     }
     background: Item {}
 }

@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls as Controls
 import QtQuick.Layouts
+import "Focus.js" as Focus
 
 ColumnLayout {
     id: root
@@ -30,8 +31,11 @@ ColumnLayout {
         Layout.fillWidth: true
         Label { text: "Connectivity"; font.pixelSize: 22; font.weight: Font.DemiBold; Layout.fillWidth: true }
         ActionButton {
+            objectName: "wifi-toggle"
             text: root.net && root.net.wifi ? "Wi-Fi on" : "Wi-Fi off"
             selected: !!root.net && root.net.wifi
+            accessibleToggle: true
+            Accessible.name: "Wi-Fi"
             enabled: !shell.networkBusy && !!root.net
             onClicked: { shell.networkBusy = true; shell.send("wifi", { enabled: !root.net.wifi }); }
         }
@@ -53,10 +57,22 @@ ColumnLayout {
         delegate: Controls.AbstractButton {
             id: row
             required property var modelData
+            required property int index
+            objectName: "network-" + index
             width: list.width; height: 58
             hoverEnabled: true; enabled: !shell.networkBusy
+            focusPolicy: Qt.StrongFocus
+            Accessible.name: modelData.ssid
+            Accessible.description: (modelData.connected ? "Connected" : modelData.security || "Open network") + ", signal " + modelData.signal + " percent"
+            Keys.onDownPressed: Focus.row(list, index + 1)
+            Keys.onUpPressed: Focus.row(list, index - 1)
             onClicked: root.connect(modelData)
-            background: Rectangle { radius: 8; color: row.hovered || row.activeFocus || row.modelData.connected ? Theme.raised : "transparent" }
+            Keys.onReturnPressed: event => { if (!event.isAutoRepeat) root.connect(modelData); }
+            Keys.onEnterPressed: event => { if (!event.isAutoRepeat) root.connect(modelData); }
+            background: Rectangle {
+                radius: 8; color: row.hovered || row.visualFocus || row.modelData.connected ? Theme.raised : "transparent"
+                border.width: row.visualFocus ? 2 : 0; border.color: Theme.accent
+            }
             contentItem: RowLayout {
                 spacing: 12
                 Label { Layout.leftMargin: 10; text: "󰤨"; font.pixelSize: 20; color: row.modelData.connected ? Theme.good : Theme.muted }

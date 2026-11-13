@@ -26,6 +26,8 @@ ColumnLayout {
                 objectName: "power-" + modelData.id
                 Layout.fillWidth: true; implicitHeight: 50
                 text: modelData.text + "  [" + modelData.key + "]"
+                Accessible.name: ({ lock: "Lock session", logout: "Log out", reboot: "Restart computer", shutdown: "Shut down computer" })[modelData.id]
+                Accessible.description: "Shortcut: " + modelData.key
                 contentItem: RowLayout {
                     spacing: 10
                     Item { Layout.fillWidth: true }

@@ -8,8 +8,13 @@ are semantic tokens generated into `quickshell/.config/quickshell/atelier/Theme.
 from `theme/palette.json`. See [desktop-wide theme setup](theme.md) for the shared
 application palette, installer, backups and other-machine deployment.
 
-The right side groups **Sound → Connectivity → Energy → Notifications → Clock →
-Session/power**, with compact 4px gaps between groups and tighter spacing within
+See the [accessibility pass](accessibility.md) for panel keyboard shortcuts,
+focus/scroll behavior, contrast checks, enlarged rendering, reduced motion and
+the remaining manual assistive-technology checks.
+
+The right side runs left-to-right as **Media → Tray → Keep awake → Battery →
+Connectivity → Sound → Date/time → Notifications → separator → Power**, with
+conditional media/tray/battery entries, compact 4px gaps between groups and tighter spacing within
 them. Buttons size to their content with 10px padding on each side. Content reserves
 space for both the font advance and visible glyph bounds, so fallback icons are
 visually centered without overflowing the content area. Volume and clock retain
@@ -20,6 +25,11 @@ icons are subdued, with accents reserved for active connections, protection,
 keep-awake, DND/notifications, charging and low battery. Cast lives in the
 Connectivity panel rather than taking permanent bar space. Bluetooth also lives
 there, with on/off/connected status and access to its full device manager.
+
+The Applications button centers its grid icon and caption independently by
+visible glyph bounds, avoiding fallback-font baseline drift while retaining equal
+side padding. Hyprland window borders use the same 1px width as menu control
+outlines; active/inactive window colors are unchanged.
 
 ## Install and start
 
@@ -75,7 +85,7 @@ casting. Removing them would remove features that Atelier still delegates.
 | --- | --- |
 | Super+Space / Applications button | Desktop-entry launcher, icons, substring filtering, arrow-key navigation, Enter to launch; Gio handles Exec/DBus/Terminal semantics instead of evaluating labels as shell commands. |
 | Super+F1 / launcher footer | Live shortcuts, category sidebar, real section headers, separate key/action columns, category/action/key filtering. Arrow/PageUp/PageDown scrolling; reference only, never executes shortcuts. |
-| Super+V | Searchable RAM-only clipboard picker for text and PNGs, thumbnails, keyboard selection, copy/delete, pause and clear. Copy never automatically pastes. Source-marked sensitive offers are skipped; unmarked secrets can still be remembered. See [clipboard privacy and limits](clipboard.md). |
+| Super+V | Searchable RAM-only clipboard picker for text and PNGs, larger selected-image previews, explicit text-truncation details, keyboard selection, copy/delete, pause, clear and optional expiry. Copy never automatically pastes. Source-marked sensitive offers are skipped; unmarked secrets can still be remembered. See [clipboard privacy and limits](clipboard.md). |
 | Workspace buttons | Selected: amber number, amber outline and raised background. Occupied but unselected: amber number only; empty: muted number. Occupancy uses the compositor's actual window count on that output, not merely a workspace record. Hover/keyboard-focus cues remain; hints show window counts. Compact padding keeps numbers centered and multi-digit labels expand instead of clipping. Bars follow output creation/removal. |
 | Volume in the bar | Always-visible volume/mute state; hovering and scrolling adjusts five percentage points per notch; click opens the 0–100% slider and mute. Scrolling the slider uses the same steps; right-click or Advanced opens pavucontrol. Unavailable state is explicit. |
 | Network | Wi-Fi/Ethernet connection/IP, cached SSID list, signal/security/saved state, rescan, Wi-Fi on/off, masked password entry, captive-portal sign-in, advanced nmtui. Height follows content rather than filling a large empty panel. |

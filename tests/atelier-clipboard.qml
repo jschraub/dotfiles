@@ -9,6 +9,7 @@ ShellRoot {
         id: fakeService
         property bool ready: true
         property bool paused: false
+        property int expirySeconds: 0
         property bool busy: false
         property string message: ""
         property var original: [
@@ -26,6 +27,7 @@ ShellRoot {
         function remove(id) { allItems = allItems.filter(item => item.id !== id); items = allItems; }
         function clear() { allItems = []; items = []; }
         function togglePaused() { paused = !paused; }
+        function setExpiry(seconds) { expirySeconds = seconds; }
         function reset() { allItems = original.slice(); items = allItems; copies = []; paused = false; }
         onCopied: fakeShell.close()
     }
@@ -50,6 +52,15 @@ ShellRoot {
     IpcHandler {
         target: "test"
         function open(): void { fakeService.reset(); fakeShell.panel = "clipboard"; }
+        function prepend(): void {
+            fakeService.allItems = [{ id: "new", kind: "text", label: "New arrival", text: "New arrival", size: 11 }].concat(fakeService.allItems);
+            fakeService.items = fakeService.allItems;
+        }
+        function longText(): void {
+            fakeService.allItems = [{ id: "long", kind: "text", label: "x".repeat(240), labelTruncated: true,
+                text: "x".repeat(16384), truncated: true, characters: 20000, previewCharacters: 16384, size: 20000 }];
+            fakeService.items = fakeService.allItems;
+        }
         function search(text: string): void { find(menu.contentItem, "clipboard-search").text = text; }
         function key(name: string): bool { return events.keyClick(Qt["Key_" + name], Qt.NoModifier, 0); }
         function removeKey(): bool { return events.keyClick(Qt.Key_Delete, Qt.ControlModifier, 0); }
@@ -61,8 +72,16 @@ ShellRoot {
         function status(): string {
             const list = find(menu.contentItem, "clipboard-list");
             const summary = find(menu.contentItem, "clipboard-summary-0");
+            const preview = find(menu.contentItem, "clipboard-image-preview");
+            const image = find(menu.contentItem, "clipboard-selected-image");
+            const details = find(menu.contentItem, "clipboard-preview-details");
             return JSON.stringify({ panel: fakeShell.panel, count: fakeService.count, matches: fakeService.items.length,
                 index: list ? list.currentIndex : -1, paused: fakeService.paused, copies: fakeService.copies,
+                expirySeconds: fakeService.expirySeconds,
+                selected: list && list.currentIndex >= 0 ? fakeService.items[list.currentIndex].id : "",
+                imageVisible: !!preview && preview.visible, imageHeight: preview ? preview.height : 0,
+                imageReady: !!image && image.status === Image.Ready,
+                details: details ? details.text : "", summary: summary ? summary.text : "",
                 plainText: !summary || summary.textFormat === Text.PlainText });
         }
     }

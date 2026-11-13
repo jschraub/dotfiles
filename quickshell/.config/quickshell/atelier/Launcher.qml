@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls as Controls
 import QtQuick.Layouts
 import Quickshell
+import "Focus.js" as Focus
 
 ColumnLayout {
     id: root
@@ -10,6 +11,7 @@ ColumnLayout {
     spacing: 14
     property var filtered: shell.apps.filter(a => (a.name + " " + a.description + " " + a.keywords).toLowerCase().includes(search.text.toLowerCase()))
     function launch(app) { if (app) shell.send("launch", { id: app.id }); }
+    function focusInitial() { search.forceActiveFocus(Qt.TabFocusReason); }
     RowLayout {
         Layout.fillWidth: true
         Label { text: "Applications"; font.pixelSize: 22; font.weight: Font.DemiBold; Layout.fillWidth: true }
@@ -39,11 +41,24 @@ ColumnLayout {
             id: row
             required property var modelData
             required property int index
+            objectName: "application-" + index
+            focusPolicy: Qt.StrongFocus
+            Accessible.name: modelData.name
+            Accessible.description: modelData.description
+            Accessible.selected: index === list.currentIndex
+            onActiveFocusChanged: if (activeFocus) list.currentIndex = index
             width: list.width; height: 60
             hoverEnabled: true
             onClicked: root.launch(modelData)
+            Keys.onReturnPressed: event => { if (!event.isAutoRepeat) root.launch(modelData); }
+            Keys.onEnterPressed: event => { if (!event.isAutoRepeat) root.launch(modelData); }
             onHoveredChanged: if (hovered) list.currentIndex = index
-            background: Rectangle { radius: 9; color: row.index === list.currentIndex ? Theme.raised : "transparent" }
+            Keys.onDownPressed: Focus.row(list, index + 1)
+            Keys.onUpPressed: Focus.row(list, index - 1)
+            background: Rectangle {
+                radius: 9; color: row.index === list.currentIndex ? Theme.raised : "transparent"
+                border.width: row.visualFocus ? 2 : 0; border.color: Theme.accent
+            }
             contentItem: RowLayout {
                 spacing: 14
                 Image { source: Quickshell.iconPath(row.modelData.icon.split(" ")[0]); sourceSize.width: 32; sourceSize.height: 32; Layout.leftMargin: 12 }
@@ -52,7 +67,7 @@ ColumnLayout {
                     Label { text: row.modelData.name; font.weight: Font.Medium; Layout.fillWidth: true }
                     Label { text: row.modelData.description; color: Theme.muted; font.pixelSize: 12; Layout.fillWidth: true }
                 }
-                Label { text: "↵"; color: Theme.accent; visible: row.index === list.currentIndex; Layout.rightMargin: 14 }
+                Label { text: "↵"; color: Theme.good; visible: row.index === list.currentIndex; Layout.rightMargin: 14 }
             }
         }
         Label { anchors.centerIn: parent; visible: list.count === 0; text: "No applications found"; color: Theme.muted }

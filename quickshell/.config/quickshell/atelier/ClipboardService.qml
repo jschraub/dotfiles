@@ -9,6 +9,7 @@ QtObject {
     property bool paused: false
     property bool busy: false
     property int count: 0
+    property int expirySeconds: 0
     property var items: []
     property string query: ""
     property string message: ""
@@ -22,10 +23,12 @@ QtObject {
     function remove(id) { if (started && !busy && id) send("delete", { id: id }); }
     function clear() { if (started && !busy) send("clear"); }
     function togglePaused() { if (started) send("pause", { paused: !paused }); }
+    function setExpiry(seconds) { if (started && !busy) send("expiry", { seconds: seconds }); }
     function receive(line) {
         try {
             const event = JSON.parse(line), data = event.data;
             ready = !!data.ready; paused = !!data.paused; count = data.count || 0;
+            expirySeconds = data.expirySeconds || 0;
             items = opened ? data.items || [] : [];
             message = data.message || "";
             if (event.type === "copied") { busy = false; copied(); }

@@ -18,11 +18,49 @@ PanelWindow {
         anchors { left: parent.left; leftMargin: 12; verticalCenter: parent.verticalCenter }
         spacing: 10
         ActionButton {
-            text: shell.preview ? "▦  Atelier\u2003Preview" : "▦  Applications"
+            id: applicationsButton
+            objectName: "applications-control"
+            text: shell.preview ? "Atelier\u2003Preview" : "Applications"
+            Accessible.name: "Applications"
             selected: shell.panel === "launcher"
             hint: "Applications"
             hintShortcut: "Super+Space"
             onClicked: shell.open("launcher", bar.screen)
+            contentItem: Item {
+                id: applicationsContent
+                readonly property rect iconInk: iconMetrics.tightBoundingRect
+                readonly property rect captionInk: captionMetrics.tightBoundingRect
+                implicitWidth: iconInk.width + 8 + captionInk.width
+                implicitHeight: Math.max(applicationsIcon.implicitHeight, applicationsCaption.implicitHeight)
+                TextMetrics { id: iconMetrics; text: applicationsIcon.text; font: applicationsIcon.font }
+                TextMetrics { id: captionMetrics; text: applicationsCaption.text; font: applicationsCaption.font }
+                // Separate fallback-glyph and text baselines: equal line-box
+                // alignment otherwise puts the grid icon below the caption.
+                Label {
+                    id: applicationsIcon
+                    objectName: "applications-icon"
+                    text: "▦"
+                    x: -applicationsContent.iconInk.x
+                    y: (parent.height - applicationsContent.iconInk.height) / 2 - baselineOffset - applicationsContent.iconInk.y
+                    width: Math.max(implicitWidth, applicationsContent.iconInk.width)
+                    height: implicitHeight
+                    verticalAlignment: Text.AlignTop
+                    color: applicationsButton.selected ? Theme.accent : applicationsButton.textColor
+                    Accessible.ignored: true
+                }
+                Label {
+                    id: applicationsCaption
+                    objectName: "applications-caption"
+                    text: applicationsButton.text
+                    x: applicationsContent.iconInk.width + 8 - applicationsContent.captionInk.x
+                    y: (parent.height - applicationsContent.captionInk.height) / 2 - baselineOffset - applicationsContent.captionInk.y
+                    width: Math.max(implicitWidth, applicationsContent.captionInk.width)
+                    height: implicitHeight
+                    verticalAlignment: Text.AlignTop
+                    color: applicationsButton.selected ? Theme.accent : applicationsButton.textColor
+                    Accessible.ignored: true
+                }
+            }
         }
         Rectangle { width: 1; height: 16; color: Theme.line }
         Row {
@@ -46,6 +84,8 @@ PanelWindow {
                     selected: !!bar.monitor.activeWorkspace && bar.monitor.activeWorkspace.id === modelData
                     textColor: windowCount > 0 ? Theme.accent : Theme.muted
                     text: String(modelData)
+                    Accessible.name: "Workspace " + modelData
+                    Accessible.selected: selected
                     hint: "Workspace\u00a0" + modelData + "\n" + (windowCount === 0 ? "Empty"
                         : windowCount + (windowCount === 1 ? "\u00a0window" : "\u00a0windows"))
                     background: Rectangle {

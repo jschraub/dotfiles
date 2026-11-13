@@ -100,8 +100,116 @@ class HistoryTest(unittest.TestCase):
         self.assertNotIn(text.decode(), str(run.call_args.args))
         self.assertFalse(history.add('text', text, 0), 'Own copy echo must not duplicate history')
 
+    def test_truncation_metadata_does_not_change_original_unicode_bytes(self):
+        history = clipboard.History()
+        text = ('λ🙂\n' * 7000).encode()
+        history.add('text', text, 0)
+        row = history.snapshot()['items'][0]
+        self.assertTrue(row['labelTruncated'])
+        self.assertTrue(row['truncated'])
+        self.assertEqual(row['characters'], 21000)
+        self.assertEqual(row['previewCharacters'], 16384)
+        self.assertEqual(row['text'], text.decode()[:16384])
+        with patch.object(clipboard.subprocess, 'run') as run:
+            history.copy(row['id'])
+        self.assertEqual(run.call_args.kwargs['input'], text)
+
+    def test_optional_expiry_disposes_images_and_rejects_inflight_offers(self):
+        now = [1000.0]
+        history = clipboard.History(clock=lambda: now[0])
+        history.add('image', png(), 0)
+        descriptor = history.entries[0]['fd']
+        now[0] += 10000
+        self.assertFalse(history.expire(), 'Default retention must remain unchanged')
+        ticket = history.offer()
+        history.set_expiry(300)
+        self.assertEqual(history.snapshot()['count'], 0)
+        self.assertEqual(history.snapshot()['expirySeconds'], 300)
+        self.assertFalse(history.add('text', b'stale read', ticket['epoch']))
+        with self.assertRaises(OSError):
+            os.fstat(descriptor)
+
+    def test_expiry_is_enforced_on_copy_even_when_paused_and_does_not_write_clipboard(self):
+        now = [0.0]
+        history = clipboard.History(clock=lambda: now[0])
+        history.set_expiry(300)
+        history.add('text', b'fixture', 0)
+        identifier = history.entries[0]['id']
+        history.pause(True)
+        now[0] = 300
+        with patch.object(clipboard.subprocess, 'run') as run:
+            with self.assertRaises(ValueError):
+                history.copy(identifier)
+            run.assert_not_called()
+        self.assertEqual(history.snapshot(visible=False)['count'], 0)
+
+    def test_external_recapture_refreshes_expiry_but_picker_copy_does_not(self):
+        now = [0.0]
+        history = clipboard.History(clock=lambda: now[0])
+        history.set_expiry(300)
+        history.add('text', b'fixture', 0)
+        now[0] = 200
+        history.add('text', b'fixture', 0)
+        now[0] = 350
+        identifier = history.snapshot()['items'][0]['id']
+        with patch.object(clipboard.subprocess, 'run'):
+            history.copy(identifier)
+        now[0] = 500
+        self.assertTrue(history.expire())
+        self.assertEqual(history.snapshot()['count'], 0)
+
+    def test_disabling_expiry_and_invalid_options(self):
+        now = [0.0]
+        history = clipboard.History(clock=lambda: now[0])
+        history.set_expiry(300)
+        history.add('text', b'fixture', 0)
+        history.set_expiry(0)
+        now[0] = 10000
+        self.assertEqual(history.snapshot()['count'], 1)
+        for value in (True, 1, -1, 86400, '300', None):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                history.set_expiry(value)
+        self.assertEqual(history.expiry_seconds, 0)
+
 
 class ClipboardProtocolTest(unittest.TestCase):
+    def test_expiry_notifies_hidden_ui_without_new_clipboard_activity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            binary = root / 'bin'; binary.mkdir()
+            watcher = binary / 'wl-paste'
+            watcher.write_text('#!/usr/bin/python3\nimport signal\nsignal.pause()\n')
+            watcher.chmod(0o755)
+            env = dict(os.environ, PATH=f'{binary}:/usr/bin', XDG_RUNTIME_DIR=str(root))
+            # Accelerate only the injected history clock, not timers or the
+            # production expiry options. Exercise the actual idle monitor.
+            code = ('import importlib.util,sys,time; '
+                    'spec=importlib.util.spec_from_file_location("fixture_clipboard",sys.argv[1]); '
+                    'm=importlib.util.module_from_spec(spec); spec.loader.exec_module(m); '
+                    'History=m.History; m.History=lambda:History(clock=lambda:time.monotonic()*300); m.serve()')
+            process = subprocess.Popen([sys.executable, '-B', '-c', code, str(SCRIPT)], env=env,
+                                       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            try:
+                def event():
+                    self.assertTrue(select.select([process.stdout], [], [], 5)[0], 'Missing expiry event')
+                    return json.loads(process.stdout.readline())['data']
+                self.assertTrue(event()['ready'])
+                process.stdin.write(b'{"action":"expiry","seconds":300}\n'); process.stdin.flush()
+                self.assertEqual(event()['expirySeconds'], 300)
+                socket = next(root.glob('atelier-clipboard-*/capture.sock'))
+                subprocess.run([sys.executable, '-B', str(SCRIPT), 'capture', 'text'],
+                               env=dict(env, ATELIER_CLIPBOARD_SOCKET=str(socket), CLIPBOARD_STATE='data'),
+                               input=b'expiring fixture', check=True, timeout=5)
+                self.assertEqual(event()['count'], 1)
+                expired = event()
+                self.assertEqual(expired['count'], 0)
+                self.assertEqual(expired['items'], [], 'Hidden UI must not receive payloads')
+            finally:
+                process.stdin.close(); process.wait(timeout=10)
+                self.assertEqual(process.returncode, 0)
+                self.assertEqual(process.stderr.read(), b'')
+                process.stdout.close(); process.stderr.close()
+
     def test_private_capture_pause_copy_and_shutdown_with_fake_wl_tools(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -116,6 +224,8 @@ class ClipboardProtocolTest(unittest.TestCase):
             scope = hashlib.sha256(env.get('WAYLAND_DISPLAY', '').encode()).hexdigest()[:16]
             pause_file = root / f'atelier-clipboard-{scope}.paused'
             pause_file.write_text('paused\n')  # A prior helper was paused before it restarted.
+            expiry_file = root / f'atelier-clipboard-{scope}.expiry'
+            expiry_file.write_text('300\n')
             process = subprocess.Popen([sys.executable, '-B', str(SCRIPT), 'serve'], env=env,
                                        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             try:
@@ -129,6 +239,10 @@ class ClipboardProtocolTest(unittest.TestCase):
                 initial = event()['data']
                 self.assertTrue(initial['ready'])
                 self.assertTrue(initial['paused'], 'Restart must honor the session pause flag before capturing')
+                self.assertEqual(initial['expirySeconds'], 300)
+                self.assertEqual(request('expiry', seconds=1800)['data']['expirySeconds'], 1800)
+                self.assertEqual(expiry_file.stat().st_mode & 0o777, 0o600)
+                self.assertEqual(expiry_file.read_text(), '1800\n')
                 self.assertFalse(request('pause', paused=False)['data']['paused'])
                 socket = next(root.glob('atelier-clipboard-*/capture.sock'))
                 self.assertEqual(socket.stat().st_mode & 0o777, 0o600)
@@ -158,7 +272,8 @@ class ClipboardProtocolTest(unittest.TestCase):
                 self.assertEqual(process.returncode, 0)
                 self.assertEqual(process.stderr.read(), b'')
                 process.stdout.close(); process.stderr.close()
-            self.assertEqual(list(root.glob('atelier-clipboard-*')), [], 'Private sockets must be retired on shutdown')
+            self.assertEqual([path for path in root.glob('atelier-clipboard-*') if path.is_dir()], [], 'Private sockets must be retired on shutdown')
+            self.assertEqual(expiry_file.read_text(), '1800\n', 'Only content-free expiry metadata survives')
 
     def test_watchers_do_not_survive_a_killed_owner(self):
         with tempfile.TemporaryDirectory() as directory:

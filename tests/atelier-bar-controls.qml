@@ -25,6 +25,10 @@ ShellRoot {
             property bool dnd: false
             property var history: []
         }
+        property QtObject desktopServices: QtObject {
+            property var players: []
+            property var trayItems: []
+        }
         function send(action, extra) { lastAction = action; lastTarget = extra ? extra.target || "" : ""; }
         function open(name, output) { panel = name; }
         function close() { panel = ""; }
@@ -88,6 +92,10 @@ ShellRoot {
                     labelRight: label ? label.x + label.width : item.contentItem.width };
             });
             return JSON.stringify({ viewportWidth: bar.width, items: items, vpn: controls.vpn,
+                order: ["media-control", "tray-control", "keep-awake-control", "battery-status", "network-control",
+                        "volume-control", "clock-control", "notifications-control", "power-control"]
+                    .map(name => find(controls, name)).filter(item => item.visible)
+                    .sort((a, b) => a.mapToGlobal(0, 0).x - b.mapToGlobal(0, 0).x).map(item => item.objectName),
                 networkCaption: controls.networkCaption, networkHint: find(controls, "network-control").hint,
                 bluetoothOnBar: !!find(controls, "bluetooth-control"),
                 bluetoothInMenu: !!find(connectivity, "bluetooth-action"), castInMenu: !!find(connectivity, "cast-action"),
@@ -104,6 +112,10 @@ ShellRoot {
         function notifications(count: int, dnd: bool): void {
             fakeShell.notificationService.history = Array(count).fill({ summary: "Test notification" });
             fakeShell.notificationService.dnd = dnd;
+        }
+        function optionalControls(visible: bool): void {
+            fakeShell.desktopServices.players = visible ? [{ identity: "Fixture player", trackTitle: "Fixture song" }] : [];
+            fakeShell.desktopServices.trayItems = visible ? [{ id: "fixture-tray" }] : [];
         }
         function transport(kind: string): void {
             const next = JSON.parse(JSON.stringify(fakeShell.state));

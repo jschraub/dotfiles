@@ -40,6 +40,15 @@ class AtelierGuiTest(unittest.TestCase):
                     time.sleep(0.05)
                 self.assertIsNone(process.poll())
                 sample = json.loads(response.stdout)
+                def check_app_alignment(sample):
+                    app = sample["applications"]
+                    self.assertAlmostEqual(app["iconCenter"], app["height"] / 2, delta=1, msg=app)
+                    self.assertAlmostEqual(app["captionCenter"], app["height"] / 2, delta=1, msg=app)
+                    self.assertEqual(app["leftPadding"], app["rightPadding"], app)
+                    self.assertAlmostEqual(app["inkLeft"], app["leftPadding"], delta=1, msg=app)
+                    self.assertAlmostEqual(app["inkRight"], app["rightPadding"], delta=1, msg=app)
+                    self.assertAlmostEqual(app["gap"], 8, delta=1, msg=app)
+                check_app_alignment(sample)
                 for entry in sample["entries"]:
                     with self.subTest(workspace=entry["number"]):
                         self.assertGreaterEqual(entry["contentWidth"] + 0.01, entry["requiredContentWidth"], entry)
@@ -65,6 +74,12 @@ class AtelierGuiTest(unittest.TestCase):
                     response = subprocess.run([QS, "ipc", "--pid", str(process.pid), "call", "test", "status"],
                                               env=env, text=True, capture_output=True, timeout=5)
                     check_style(json.loads(response.stdout), current, occupied)
+                changed = subprocess.run([QS, "ipc", "--pid", str(process.pid), "call", "test", "preview", "false"],
+                                         env=env, text=True, capture_output=True, timeout=5)
+                self.assertEqual(changed.returncode, 0)
+                response = subprocess.run([QS, "ipc", "--pid", str(process.pid), "call", "test", "status"],
+                                          env=env, text=True, capture_output=True, timeout=5)
+                check_app_alignment(json.loads(response.stdout))
             finally:
                 process.terminate()
                 process.wait(timeout=10)
@@ -94,7 +109,10 @@ class AtelierGuiTest(unittest.TestCase):
                 self.assertIsNone(process.poll())
                 initial = json.loads(response.stdout)
                 items = initial["items"]
-                self.assertEqual([item["x"] for item in items], sorted(item["x"] for item in items))
+                self.assertEqual(initial["order"], ["keep-awake-control", "network-control", "volume-control",
+                                                     "clock-control", "notifications-control", "power-control"])
+                self.assertIn("Jan", items[4]["text"], "Keep the date in the non-compact clock")
+                self.assertIn("01:11", items[4]["text"])
                 self.assertEqual(initial["networkCaption"], "Wired")
                 self.assertNotIn("Wired", items[1]["text"])
                 self.assertNotIn("connection", items[1]["text"])
@@ -116,7 +134,7 @@ class AtelierGuiTest(unittest.TestCase):
                 self.assertTrue(initial["bluetoothInMenu"])
                 self.assertTrue(initial["castInMenu"])
                 self.assertFalse(initial["castOnBar"])
-                for left_index, right_index in [(0, 1), (1, 2), (2, 3), (3, 4)]:
+                for left_index, right_index in [(2, 1), (1, 0), (0, 4), (4, 3)]:
                     gap = items[right_index]["x"] - items[left_index]["x"] - items[left_index]["width"]
                     self.assertGreaterEqual(gap, 4)
                     self.assertLessEqual(gap, 5)
@@ -141,18 +159,22 @@ class AtelierGuiTest(unittest.TestCase):
                     self.assertEqual(ipc("transport", kind).returncode, 0)
                     icons[kind] = json.loads(ipc("status").stdout)["items"][1]["text"]
                 self.assertEqual(len(set(icons.values())), 3)
+                self.assertEqual(ipc("optionalControls", "true").returncode, 0)
                 for percent in [8, 55, 100]:
                     self.assertEqual(ipc("battery", str(percent)).returncode, 0)
                     time.sleep(0.05)
                     state = json.loads(ipc("status").stdout)
                     battery = state["battery"]
-                    awake, notifications = state["items"][2:4]
+                    awake, network = state["items"][2], state["items"][1]
+                    self.assertEqual(state["order"], ["media-control", "tray-control", "keep-awake-control", "battery-status",
+                                                       "network-control", "volume-control", "clock-control", "notifications-control", "power-control"])
                     self.assertTrue(battery["visible"])
                     left_gap = battery["x"] - awake["x"] - awake["width"]
-                    right_gap = notifications["x"] - battery["x"] - battery["width"]
+                    right_gap = network["x"] - battery["x"] - battery["width"]
                     self.assertAlmostEqual(left_gap, 14, delta=1)
                     self.assertAlmostEqual(right_gap, 14, delta=1)
                 self.assertEqual(ipc("battery", "-1").returncode, 0)
+                self.assertEqual(ipc("optionalControls", "false").returncode, 0)
                 self.assertEqual(icons["ethernet"], items[1]["text"])
                 for count, dnd, icon in [(0, False, "\U000f009c"), (2, False, "\U000f009a"),
                                          (0, False, "\U000f009c"), (0, True, "\U000f009b"),

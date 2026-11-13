@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls as Controls
 import QtQuick.Layouts
 
 ColumnLayout {
@@ -14,29 +13,15 @@ ColumnLayout {
         Label { text: root.audio && root.audio.muted ? "Output muted" : "Default output"; color: Theme.muted; Layout.fillWidth: true }
         Label { text: root.audio ? root.audio.percent + "%" : "Unavailable"; font.pixelSize: 26; color: Theme.accent }
     }
-    Controls.Slider {
+    LevelSlider {
         id: volume
         objectName: "volume-slider"
-        implicitHeight: 28
         Layout.fillWidth: true
-        from: 0; to: 100; stepSize: 1
         enabled: !!root.audio
         Accessible.name: "Output volume"
         Binding { target: volume; property: "value"; value: root.audio ? root.audio.percent : 0; when: !volume.pressed && !apply.running }
         onMoved: apply.restart()
         VolumeWheel { shell: root.shell }
-        background: Rectangle {
-            implicitHeight: 6
-            x: volume.leftPadding; y: volume.topPadding + volume.availableHeight / 2 - 3
-            width: volume.availableWidth; height: 6; radius: 3; color: Theme.background
-            Rectangle { width: volume.visualPosition * parent.width; height: parent.height; radius: 3; color: Theme.accent }
-        }
-        handle: Rectangle {
-            implicitWidth: 16; implicitHeight: 16
-            x: volume.leftPadding + volume.visualPosition * (volume.availableWidth - width)
-            y: volume.topPadding + volume.availableHeight / 2 - height / 2
-            width: 16; height: 16; radius: 8; color: Theme.text
-        }
     }
     Timer { id: apply; interval: 80; onTriggered: shell.send("volume", { percent: volume.value }) }
     RowLayout {

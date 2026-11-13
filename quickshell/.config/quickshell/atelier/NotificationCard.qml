@@ -22,7 +22,7 @@ Rectangle {
                 sourceSize.width: 18; sourceSize.height: 18
             }
             Label { text: root.record.app || "Notification"; color: Theme.accent; font.pixelSize: 11; Layout.fillWidth: true }
-            ActionButton { text: "×"; implicitWidth: 24; implicitHeight: 22; hint: "Dismiss notification"; onClicked: root.service.remove(root.record.id) }
+            ActionButton { text: "×"; implicitWidth: 28; implicitHeight: 28; hint: "Dismiss notification"; Accessible.name: "Dismiss notification from " + (root.record.app || "application"); onClicked: root.service.remove(root.record.id) }
         }
         Label { Layout.fillWidth: true; text: root.record.title; font.weight: Font.DemiBold; wrapMode: Text.WordWrap; maximumLineCount: root.compact ? 2 : 6; elide: Text.ElideRight }
         Label { Layout.fillWidth: true; visible: !!root.record.body; text: root.record.body; font.pixelSize: 12; color: Theme.muted; wrapMode: Text.WordWrap; maximumLineCount: root.compact ? 3 : 8; elide: Text.ElideRight }

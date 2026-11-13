@@ -55,6 +55,7 @@ ColumnLayout {
         echoMode: root.flow && root.flow.responseVisible ? TextInput.Normal : TextInput.Password
         inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText | (root.flow && !root.flow.responseVisible ? Qt.ImhHiddenText : 0)
         placeholderText: "Authentication response"
+        Accessible.name: root.flow && root.flow.inputPrompt ? root.flow.inputPrompt : "Authentication response"
         onAccepted: root.submit()
         onActiveFocusChanged: if (activeFocus) root.focusResponse(y, height)
     }

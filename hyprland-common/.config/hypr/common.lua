@@ -93,7 +93,7 @@ hl.config({
         gaps_in  = 2,
         gaps_out = 4,
 
-        border_size = 2,
+        border_size = 1, -- Match Atelier's 1px control outline.
 
         col = {
             active_border = {
@@ -217,6 +217,15 @@ hl.bind(mainMod .. " + backspace", hl.dsp.exec_cmd(lidDisplay .. ' --all-on && s
 hl.bind(mainMod .. " + delete",    hl.dsp.exec_cmd("~/.local/bin/desktop-shell toggle power"), { description = "Open power menu (logout / reboot / shutdown)" })
 hl.bind(mainMod .. " + E",         hl.dsp.exec_cmd(fileManager), { description = "Open file manager (Nautilus)" })
 hl.bind(mainMod .. " + V", hl.dsp.exec_cmd("~/.local/bin/desktop-shell toggle clipboard"), { description = "Open clipboard history picker" })
+-- Every topbar panel also has a keyboard entry point; the bar itself never
+-- takes keyboard focus away from the active application.
+hl.bind(mainMod .. " + CTRL + A", hl.dsp.exec_cmd("~/.local/bin/desktop-shell toggle audio"), { description = "Open sound controls" })
+hl.bind(mainMod .. " + CTRL + N", hl.dsp.exec_cmd("~/.local/bin/desktop-shell toggle network"), { description = "Open connectivity controls" })
+hl.bind(mainMod .. " + CTRL + B", hl.dsp.exec_cmd("~/.local/bin/desktop-shell toggle bluetooth"), { description = "Open Bluetooth controls" })
+hl.bind(mainMod .. " + CTRL + C", hl.dsp.exec_cmd("~/.local/bin/desktop-shell toggle calendar"), { description = "Open calendar" })
+hl.bind(mainMod .. " + CTRL + H", hl.dsp.exec_cmd("~/.local/bin/desktop-shell toggle notifications"), { description = "Open notification history" })
+hl.bind(mainMod .. " + CTRL + M", hl.dsp.exec_cmd("~/.local/bin/desktop-shell toggle media"), { description = "Open media controls" })
+hl.bind(mainMod .. " + CTRL + T", hl.dsp.exec_cmd("~/.local/bin/desktop-shell toggle tray"), { description = "Open system tray" })
 hl.bind(mainMod .. " + SHIFT + space", hl.dsp.window.float({ action = "toggle" }), { description = "Toggle floating window" })
 hl.bind(mainMod .. " + space",     hl.dsp.exec_cmd(menu), { description = "Open application launcher" })
 hl.bind(mainMod .. " + P",         hl.dsp.window.pseudo(), { description = "Toggle pseudo tiling" })

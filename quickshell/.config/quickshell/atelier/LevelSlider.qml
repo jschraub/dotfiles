@@ -16,5 +16,12 @@ Controls.Slider {
         x: root.leftPadding + root.visualPosition * (root.availableWidth - width)
         y: root.topPadding + root.availableHeight / 2 - height / 2
         width: 16; height: 16; radius: 8; color: Theme.text
+        Rectangle {
+            objectName: "slider-focus-ring"
+            anchors.fill: parent; anchors.margins: -4
+            radius: 12; color: "transparent"
+            border.width: 2; border.color: Theme.accent
+            visible: root.visualFocus
+        }
     }
 }

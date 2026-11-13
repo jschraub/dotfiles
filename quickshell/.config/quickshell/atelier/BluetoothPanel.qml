@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls as Controls
 import QtQuick.Layouts
 import Quickshell.Bluetooth
+import "Focus.js" as Focus
 
 ColumnLayout {
     id: root
@@ -41,7 +42,7 @@ ColumnLayout {
     RowLayout {
         Layout.fillWidth: true
         Label { text: "Bluetooth"; font.pixelSize: 22; font.weight: Font.DemiBold; Layout.fillWidth: true }
-        ActionButton { text: root.adapter && root.adapter.enabled ? "On" : "Off"; selected: !!root.adapter && root.adapter.enabled; enabled: !!root.adapter; onClicked: root.adapter.enabled = !root.adapter.enabled }
+        ActionButton { text: root.adapter && root.adapter.enabled ? "On" : "Off"; Accessible.name: "Bluetooth"; accessibleToggle: true; selected: !!root.adapter && root.adapter.enabled; enabled: !!root.adapter; onClicked: root.adapter.enabled = !root.adapter.enabled }
     }
     RowLayout {
         Repeater {
@@ -70,6 +71,9 @@ ColumnLayout {
         Controls.ScrollBar.vertical: ScrollHandle {}
         delegate: RowLayout {
             required property var modelData
+            required property int index
+            Keys.onDownPressed: Focus.row(list, index + 1)
+            Keys.onUpPressed: Focus.row(list, index - 1)
             width: list.width; height: 62; spacing: 8
             ColumnLayout {
                 Layout.fillWidth: true; spacing: 4
@@ -84,6 +88,7 @@ ColumnLayout {
             ActionButton {
                 objectName: "bluetooth-device-" + modelData.address
                 text: modelData.connected ? "Disconnect" : "Connect"
+                Accessible.name: (modelData.connected ? "Disconnect " : "Connect ") + (modelData.name || modelData.address)
                 enabled: !!root.adapter && root.adapter.enabled && modelData.paired && !modelData.blocked
                     && !root.pendingDevice
                     && modelData.state !== BluetoothDeviceState.Connecting && modelData.state !== BluetoothDeviceState.Disconnecting

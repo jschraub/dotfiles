@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls as Controls
 import QtQuick.Layouts
+import "Focus.js" as Focus
 
 ColumnLayout {
     id: root
@@ -37,12 +38,18 @@ ColumnLayout {
     RowLayout {
         Layout.fillWidth: true; Layout.fillHeight: true; spacing: 20
         ListView {
+            id: categoryList
             Layout.preferredWidth: 170; Layout.fillHeight: true
             model: root.categories; clip: true; spacing: 4
             delegate: ActionButton {
                 required property var modelData
-                width: 170
+                required property int index
+                width: categoryList.width
                 text: modelData
+                hint: modelData
+                Accessible.selected: selected
+                Keys.onDownPressed: Focus.row(categoryList, index + 1)
+                Keys.onUpPressed: Focus.row(categoryList, index - 1)
                 alignLeft: true
                 selected: root.category === modelData
                 onClicked: root.category = modelData

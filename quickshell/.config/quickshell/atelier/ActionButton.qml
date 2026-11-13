@@ -11,29 +11,33 @@ Controls.AbstractButton {
     property bool alignLeft: false
     property color textColor: Theme.text
     property bool tabularDigits: false
+    property bool accessibleToggle: false
     horizontalPadding: 12
     property bool hintReady: false
     function updateHint() {
         hintReady = false;
-        if (hovered && enabled && !pressed && hint.length > 0) hintDelay.restart();
+        if ((hovered || visualFocus) && enabled && !pressed && hint.length > 0) hintDelay.restart();
         else hintDelay.stop();
     }
     onHoveredChanged: updateHint()
+    onVisualFocusChanged: updateHint()
     onHintChanged: updateHint()
     onHintShortcutChanged: updateHint()
     onEnabledChanged: updateHint()
     onPressedChanged: updateHint()
     Timer { id: hintDelay; interval: 600; onTriggered: root.hintReady = true }
-    implicitHeight: 34
+    implicitHeight: Math.max(34, contentItem.implicitHeight + 12)
     implicitWidth: contentItem.implicitWidth + horizontalPadding * 2
     hoverEnabled: true
     focusPolicy: Qt.StrongFocus
+    Keys.onReturnPressed: event => { if (!event.isAutoRepeat && enabled) clicked(); }
+    Keys.onEnterPressed: event => { if (!event.isAutoRepeat && enabled) clicked(); }
     background: Rectangle {
         radius: 7
         color: root.down ? Theme.hover : root.hovered || root.selected || root.visualFocus ? Theme.raised : "transparent"
         border.width: root.visualFocus ? 1 : 0
         border.color: Theme.accent
-        Behavior on color { ColorAnimation { duration: 100 } }
+        Behavior on color { enabled: !Theme.reducedMotion; ColorAnimation { duration: 100 } }
     }
     TextMetrics {
         id: inkMetrics
@@ -58,7 +62,7 @@ Controls.AbstractButton {
             height: content.height
             text: root.text
             horizontalAlignment: Text.AlignLeft
-            color: root.dangerous ? Theme.danger : root.selected ? Theme.accent : root.textColor
+            color: root.dangerous ? Theme.dangerText : root.selected ? Theme.accent : root.textColor
             font.features: root.tabularDigits ? ({ "tnum": 1 }) : ({})
         }
     }
@@ -71,7 +75,7 @@ Controls.AbstractButton {
         anchor.gravity: Edges.Bottom
         anchor.adjustment: PopupAdjustment.SlideX | PopupAdjustment.FlipY
         grabFocus: false
-        visible: root.hintReady && root.hovered && root.enabled && !root.pressed && root.hint.length > 0
+        visible: root.hintReady && (root.hovered || root.visualFocus) && root.enabled && !root.pressed && root.hint.length > 0
         implicitWidth: Math.min(360, hintMeasure.implicitWidth + (root.hintShortcut ? shortcutText.implicitWidth + 8 : 0) + 24)
         implicitHeight: hintText.implicitHeight + 16
         color: "transparent"
@@ -106,4 +110,7 @@ Controls.AbstractButton {
         }
     }
     Accessible.name: text
+    Accessible.description: hint + (hintShortcut ? (hint ? "\n" : "") + "Shortcut: " + hintShortcut : "")
+    Accessible.checkable: accessibleToggle
+    Accessible.checked: accessibleToggle && selected
 }

@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls as Controls
 import QtQuick.Layouts
 import Quickshell
+import "Focus.js" as Focus
 
 ColumnLayout {
     id: root
@@ -38,6 +39,9 @@ ColumnLayout {
         Controls.ScrollBar.vertical: ScrollHandle {}
         delegate: RowLayout {
             required property var modelData
+            required property int index
+            Keys.onDownPressed: Focus.row(list, index + 1)
+            Keys.onUpPressed: Focus.row(list, index - 1)
             width: list.width; height: 44
             Image { source: modelData.icon; sourceSize.width: 22; sourceSize.height: 22; width: 22; height: 22; fillMode: Image.PreserveAspectFit }
             ActionButton {
@@ -50,7 +54,7 @@ ColumnLayout {
                     else { modelData.activate(); shell.close(); }
                 }
             }
-            ActionButton { objectName: "tray-menu-" + modelData.id; text: "⋯"; visible: modelData.hasMenu; hint: "Application menu"; onClicked: root.currentMenu = modelData.menu }
+            ActionButton { objectName: "tray-menu-" + modelData.id; text: "⋯"; Accessible.name: "Menu for " + (modelData.title || modelData.id); visible: modelData.hasMenu; hint: "Application menu"; onClicked: root.currentMenu = modelData.menu }
         }
         Label { anchors.centerIn: parent; visible: list.count === 0; text: "No tray applications"; color: Theme.muted }
     }
@@ -61,6 +65,8 @@ ColumnLayout {
         delegate: Column {
             required property var modelData
             required property int index
+            Keys.onDownPressed: Focus.row(entries, index + 1)
+            Keys.onUpPressed: Focus.row(entries, index - 1)
             width: entries.width
             Rectangle { visible: modelData.isSeparator; width: parent.width; height: 1; color: Theme.line }
             ActionButton {
