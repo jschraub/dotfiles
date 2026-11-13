@@ -2,6 +2,7 @@ theme = Atelier Amber
 # font-family = Meslo LGS Nerd Font Mono
 # font-family = CaskaydiaMono Nerd Font
 font-family = CaskaydiaCove Nerd Font
+font-style = Light
 font-size = 10
 background-opacity = 0.85
 gtk-titlebar = false

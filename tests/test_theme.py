@@ -27,6 +27,12 @@ def parse(text):
 
 
 class ThemeTest(unittest.TestCase):
+    def test_terminal_uses_caskaydia_light_at_ten_points(self):
+        config = (ROOT / 'ghostty/.config/ghostty/config').read_text().splitlines()
+        self.assertIn('font-family = CaskaydiaCove Nerd Font', config)
+        self.assertIn('font-style = Light', config)
+        self.assertIn('font-size = 10', config)
+
     def setUp(self):
         quiet = redirect_stdout(io.StringIO())
         quiet.__enter__()
