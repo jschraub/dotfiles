@@ -126,8 +126,9 @@ ColumnLayout {
     ActionButton {
         objectName: "cast-action"
         Layout.fillWidth: true
-        text: "󰤉  Cast display ↗"
-        hint: "Launch Miracast using AMD graphics"
-        onClicked: { shell.send("open", { target: "cast" }); shell.close(); }
+        text: "󰤉  Screen sharing ›"
+        hint: "AirPlay, Miracast and Chromecast"
+        hintShortcut: "Super+Ctrl+S"
+        onClicked: shell.open("sharing")
     }
 }

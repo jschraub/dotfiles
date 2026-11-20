@@ -54,6 +54,9 @@ Package requirements are read from the existing `setup.sh` registry on every run
 system upgrade or orphan/removal operation is performed by `update.sh` itself.
 Non-interactive mode defers missing dependencies instead of invoking a package manager.
 
+Optional [casting](casting.md) is also tracked after `./setup.sh casting` installs
+its marker. Routine updates do not add it to machines where it was never selected.
+
 Before restowing, GNU Stow simulates the operation. Conflicting real/foreign
 configuration stops the update; the updater does not adopt or replace it. The
 existing application-theme/editor installers preserve unrelated settings and

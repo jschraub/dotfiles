@@ -243,7 +243,7 @@ class DesktopUpdateTest(unittest.TestCase):
 
     def test_provider_dependencies_and_native_locker_do_not_reinstall_hyprlock(self):
         selector = self.home / '.config/dotfiles/lock-screen'
-        selector.parent.mkdir(parents=True)
+        selector.parent.mkdir(parents=True, exist_ok=True)
         selector.write_text('atelier\n')
         self.updater.missing = ['wl-clipboard']
         plan = self.plan()

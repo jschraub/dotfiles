@@ -226,6 +226,7 @@ hl.bind(mainMod .. " + CTRL + C", hl.dsp.exec_cmd("~/.local/bin/desktop-shell to
 hl.bind(mainMod .. " + CTRL + H", hl.dsp.exec_cmd("~/.local/bin/desktop-shell toggle notifications"), { description = "Open notification history" })
 hl.bind(mainMod .. " + CTRL + M", hl.dsp.exec_cmd("~/.local/bin/desktop-shell toggle media"), { description = "Open media controls" })
 hl.bind(mainMod .. " + CTRL + T", hl.dsp.exec_cmd("~/.local/bin/desktop-shell toggle tray"), { description = "Open system tray" })
+hl.bind(mainMod .. " + CTRL + S", hl.dsp.exec_cmd("~/.local/bin/desktop-shell toggle sharing"), { description = "Open screen sharing (AirPlay / Miracast / Chromecast)" })
 hl.bind(mainMod .. " + SHIFT + space", hl.dsp.window.float({ action = "toggle" }), { description = "Toggle floating window" })
 hl.bind(mainMod .. " + space",     hl.dsp.exec_cmd(menu), { description = "Open application launcher" })
 hl.bind(mainMod .. " + P",         hl.dsp.window.pseudo(), { description = "Toggle pseudo tiling" })

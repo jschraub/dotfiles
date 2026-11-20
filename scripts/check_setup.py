@@ -282,6 +282,19 @@ class Audit:
             self.report('DRIFT', str(path), 'missing or invalid Zed settings')
         self.value('default text editor', ['xdg-mime', 'query', 'default', 'text/plain'], 'atelier-editor.desktop')
 
+    def casting(self):
+        try:
+            result = subprocess.run(['python3', '-B', str(self.root / 'quickshell/.config/quickshell/atelier/sharing.py'), '--check'],
+                                    capture_output=True, text=True, timeout=40, check=True)
+            data = json.loads(result.stdout)
+            for key in ('airplay', 'airplayCompatible', 'network'):
+                self.report('OK' if data.get(key) else 'DRIFT', 'sharing backend ' + key)
+            for key in ('pipewiresrc', 'pulsesrc', 'x264enc'):
+                self.report('OK' if data.get('plugins', {}).get(key) else 'DRIFT', 'sharing GStreamer ' + key)
+        except (OSError, ValueError, subprocess.SubprocessError):
+            self.report('UNKNOWN', 'casting diagnostics', 'unable to query backends/plugins')
+        self.report('UNKNOWN', 'casting runtime', 'test the real TV, GPU encoder, portal, pairing, audio and Stop on each machine')
+
     def external(self, item):
         # Installers follow moving upstream branches, not a committed version.
         locations = {
@@ -352,7 +365,7 @@ class Audit:
             self.stow('hyprland-common')
         elif item == 'greetd' and Path('/etc/atelier/access/greeter-selected').is_file():
             self.access()
-        elif item in ['tty', 'greetd', 'upall', 'nautilus', 'theme', 'zed', 'access']:
+        elif item in ['tty', 'greetd', 'upall', 'nautilus', 'theme', 'zed', 'access', 'casting']:
             getattr(self, item)()
         elif item == 'pam':
             self.file(self.root / 'pam-setup/etc/pam.d/hyprlock', Path('/etc/pam.d/hyprlock'), mode=0o644, uid=0, gid=0)

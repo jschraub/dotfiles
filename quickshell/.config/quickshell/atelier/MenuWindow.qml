@@ -17,10 +17,10 @@ PanelWindow {
     WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     color: "transparent"
     property bool centered: ["launcher", "bindings", "power", "clipboard"].includes(shell.panel)
-    property real preferredWidth: shell.panel === "bindings" ? 940 : ["launcher", "clipboard"].includes(shell.panel) ? 680 : shell.panel === "power" ? 460 : 420
+    property real preferredWidth: shell.panel === "bindings" ? 940 : ["launcher", "clipboard"].includes(shell.panel) ? 680 : shell.panel === "sharing" ? 620 : shell.panel === "power" ? 460 : 420
     property real preferredHeight: ({ bindings: 600, launcher: 530, audio: 270, network: 650,
                                       calendar: 430, power: 340, notifications: 570, audioDevices: 570,
-                                      bluetooth: 570, media: 430, tray: 470, clipboard: 620 })[shell.panel] || 300
+                                      bluetooth: 570, media: 430, tray: 470, clipboard: 620, sharing: 760 })[shell.panel] || 300
     readonly property rect cardGeometry: Qt.rect(card.x, card.y, card.width, card.height)
     function focusNext(forward) { Focus.cycle(card, window.contentItem.Window.activeFocusItem, forward); }
     Connections {
@@ -38,7 +38,7 @@ PanelWindow {
         Accessible.role: Accessible.Pane
         Accessible.name: ({ launcher: "Applications", bindings: "Keyboard shortcuts", audio: "Sound", audioDevices: "Audio devices",
             bluetooth: "Bluetooth", media: "Media", tray: "System tray", network: "Connectivity", calendar: "Calendar",
-            power: "Session and power", notifications: "Notifications", clipboard: "Clipboard" })[shell.panel] || "Atelier"
+            power: "Session and power", notifications: "Notifications", clipboard: "Clipboard", sharing: "Screen sharing" })[shell.panel] || "Atelier"
         width: Math.min(window.preferredWidth, window.width - 32)
         height: Math.min(contents.item && contents.item.panelHeight !== undefined ? contents.item.panelHeight : window.preferredHeight,
                          window.height - Theme.barHeight - 40)
@@ -89,6 +89,7 @@ PanelWindow {
                         case "power": return power;
                         case "notifications": return notificationCenter;
                         case "clipboard": return clipboard;
+                        case "sharing": return sharing;
                         default: return null;
                         }
                     }
@@ -119,4 +120,5 @@ PanelWindow {
     Component { id: power; PowerPanel { shell: window.shell } }
     Component { id: notificationCenter; NotificationCenter { service: window.shell.notificationService } }
     Component { id: clipboard; ClipboardPanel { shell: window.shell } }
+    Component { id: sharing; SharingPanel { shell: window.shell } }
 }

@@ -19,6 +19,7 @@ these shortcuts, also listed in **Super+F1**:
 | Super+Ctrl+H | Notification history |
 | Super+Ctrl+M | Media |
 | Super+Ctrl+T | System tray |
+| Super+Ctrl+S | Screen sharing |
 | Super+V | Clipboard |
 | Super+Delete | Session and power |
 

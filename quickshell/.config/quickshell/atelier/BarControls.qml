@@ -19,6 +19,17 @@ RowLayout {
     readonly property string networkIcon: vpn ? "󰒃" : !network || network.kind === "offline" ? "󰤭"
         : network.kind === "wifi" ? "󰤨" : network.kind === "ethernet" ? "󰈀" : "󰛳"
     spacing: 4
+    ActionButton {
+        objectName: "sharing-control"
+        visible: !!shell.sharingService && shell.sharingService.active
+        horizontalPadding: Theme.barButtonPadding
+        text: "󰤉  " + (shell.sharingService ? shell.sharingService.label : "Sharing")
+        Accessible.name: "Screen sharing controls"
+        hint: shell.sharingService ? shell.sharingService.label + "\nOpen controls to stop owned sharing processes" : ""
+        hintShortcut: "Super+Ctrl+S"
+        selected: true
+        onClicked: shell.open("sharing", root.output)
+    }
 
     ActionButton {
         objectName: "media-control"

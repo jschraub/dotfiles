@@ -358,7 +358,7 @@ def action(request):
     elif name == "open":
         targets = {"audio": ["pavucontrol"], "bluetooth": ["blueman-manager"],
                    "network": ["ghostty", "--title=nmtui-float", "-e", "nmtui"],
-                   "cast": ["env", "LIBVA_DRIVER_NAME=radeonsi", "gnome-network-displays"]}
+                   "cast": ["gnome-network-displays"]}
         detached(targets[request["target"]])
     elif name == "power":
         targets = {"lock": [str(CONFIG / "hypr/scripts/lock.sh")],

@@ -31,6 +31,7 @@ ANCHORS = {
     'zed': ('zed/.config/zed/themes/atelier-amber.json',),
     'opencode': ('opencode/.config/opencode',),
     'theme': ('desktop-theme/.themes/Atelier/gtk-3.0/gtk.css', 'gtk-4.0/.config/gtk-4.0/gtk.css'),
+    'casting': ('casting/.config/dotfiles/casting',),
 }
 SCRIPTS = {
     'hyprland': ('scripts/install_cursor.py',),
@@ -260,7 +261,7 @@ class Updater:
 
             def report(self, state, label, detail=''):
                 super().report(state, label, detail)
-                if state == 'UNKNOWN' and label not in ('runtime appearance', 'authentication runtime', 'Fish plugins'):
+                if state == 'UNKNOWN' and label not in ('runtime appearance', 'authentication runtime', 'Fish plugins', 'casting runtime'):
                     self.blocking_unknown.append(label)
 
         audit = UpdateAudit(root=self.root, home=self.home, machine=plan['machine'])

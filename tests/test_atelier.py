@@ -123,9 +123,9 @@ class AdapterTest(unittest.TestCase):
 
     @patch.object(backend, "command")
     @patch.object(backend, "detached")
-    def test_cast_keeps_amd_override(self, detached, command):
+    def test_legacy_cast_does_not_force_an_amd_driver(self, detached, command):
         backend.action(dict(action="open", target="cast"))
-        detached.assert_called_once_with(["env", "LIBVA_DRIVER_NAME=radeonsi", "gnome-network-displays"])
+        detached.assert_called_once_with(["gnome-network-displays"])
 
     @patch.object(backend, "networks", return_value={"items": [dict(ssid="Home", security="WPA2", uuid="")]})
     @patch.object(backend, "connections", return_value=[])

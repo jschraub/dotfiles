@@ -16,6 +16,7 @@ ShellRoot {
     property var desktopServices: services.item
     // Clipboard payloads stay in its private service, never shell status/IPC.
     property var clipboardService: clipboard.item
+    property var sharingService: sharing.item
     property var chosenScreen: null
     property var menuScreen: chosenScreen && Quickshell.screens.indexOf(chosenScreen) >= 0
                              ? chosenScreen : focusedScreen()
@@ -67,7 +68,7 @@ ShellRoot {
     IpcHandler {
         target: "shell"
         function toggle(name: string): void {
-            if (["launcher", "bindings", "audio", "audioDevices", "bluetooth", "media", "tray", "network", "calendar", "notifications", "power", "clipboard"].includes(name)) root.open(name);
+            if (["launcher", "bindings", "audio", "audioDevices", "bluetooth", "media", "tray", "network", "calendar", "notifications", "power", "clipboard", "sharing"].includes(name)) root.open(name);
         }
         function showOsd(kind: string, percent: int, muted: bool): void { osd.show(kind, percent, muted); }
         function wallpaperReady(): bool {
@@ -78,6 +79,7 @@ ShellRoot {
                 inputs: root.desktopServices ? root.desktopServices.inputs.length : 0, players: root.desktopServices ? root.desktopServices.players.length : 0,
                 trayItems: root.desktopServices ? root.desktopServices.trayItems.length : 0,
                 clipboard: !!root.clipboardService && root.clipboardService.ready,
+                sharing: !!root.sharingService && root.sharingService.started,
                 wallpaper: backgrounds.instances.length > 0 && Array.from(backgrounds.instances).every(w => w.ready) });
         }
         function close(): void { root.close(); }
@@ -117,6 +119,12 @@ ShellRoot {
     MenuWindow { id: menu; shell: root }
     Osd { id: osd; shell: root }
     Loader { id: services; active: !root.testing && !root.preview; sourceComponent: Component { DesktopServices {} } }
+    Loader {
+        id: sharing
+        // Idle helper only: discovery/capture begins with an explicit panel action.
+        active: !root.testing && !root.preview
+        sourceComponent: Component { SharingService {} }
+    }
     Loader {
         id: clipboard
         active: !root.testing && !root.preview

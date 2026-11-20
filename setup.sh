@@ -38,7 +38,7 @@ STOW_NO_FOLDING=0
 #   STOW[id]    space-separated stow package dirs to link
 #   HANDLER[id] optional function name overriding the generic install+stow
 
-ORDER=(hyprland quickshell access ghostty fish nautilus gaming backgrounds avatars zed opencode theme cloudflare-skills mattpocock-skills matrix greetd tty)
+ORDER=(hyprland quickshell access ghostty fish nautilus gaming backgrounds avatars zed opencode theme casting cloudflare-skills mattpocock-skills matrix greetd tty)
 
 declare -A LABEL PKGS STOW HANDLER OPTIONAL
 
@@ -92,6 +92,12 @@ LABEL[theme]="Atelier Amber desktop-wide appearance (backed-up user settings, no
 PKGS[theme]="python inter-font breeze-icons"
 STOW[theme]="desktop-theme gtk-4.0"
 HANDLER[theme]=handle_theme
+
+LABEL[casting]="Optional AirPlay, Miracast and Chromecast screen sharing (no TV app)"
+OPTIONAL[casting]=1
+PKGS[casting]="doubletake-bin>=0.6.0 gnome-network-displays gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-plugin-pipewire gst-plugin-va libfdk-aac pipewire-pulse libpulse xdg-desktop-portal-hyprland>=1.5.0"
+STOW[casting]="casting"
+HANDLER[casting]=handle_casting
 
 LABEL[cloudflare-skills]="Cloudflare OpenCode skills + remote MCP server"
 HANDLER[cloudflare-skills]=handle_cloudflare_skills
@@ -261,6 +267,13 @@ handle_zed() {
 handle_theme() {
     pkg_install ${PKGS[theme]} || return
     delegate setup-theme.sh
+}
+handle_casting() {
+    pkg_install ${PKGS[casting]} || return
+    safe_stow casting || return
+    handle_quickshell || return
+    info "Screen sharing: Super+Ctrl+S. No daemon, firewall rule, GPU driver or TV connection was enabled."
+    info "NVIDIA requires a working NVENC driver/plugin; use Check encoders, then test the real receiver."
 }
 retire_legacy_matrix_link() {
     local target="$HOME/.config/opencode/plugin/matrix.ts"

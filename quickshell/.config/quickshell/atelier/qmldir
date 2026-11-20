@@ -27,6 +27,8 @@ LockController 1.0 LockController.qml
 GreeterController 1.0 GreeterController.qml
 ClipboardService 1.0 ClipboardService.qml
 ClipboardPanel 1.0 ClipboardPanel.qml
+SharingService 1.0 SharingService.qml
+SharingPanel 1.0 SharingPanel.qml
 NetworkPanel 1.0 NetworkPanel.qml
 CalendarPanel 1.0 CalendarPanel.qml
 PowerPanel 1.0 PowerPanel.qml
