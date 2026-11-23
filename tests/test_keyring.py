@@ -1,5 +1,6 @@
 """Migration boundaries with disposable homes; never uses the real keyring/TPM."""
 from contextlib import redirect_stdout
+import base64
 import io
 import json
 import os
@@ -18,6 +19,7 @@ import credentials
 import health
 import migration
 import keyring_session
+import legacy_gnome
 from paths import CREDENTIAL, Paths
 sys.path.pop(0)
 
@@ -36,6 +38,10 @@ class KeyringTest(unittest.TestCase):
         quiet = redirect_stdout(io.StringIO())
         quiet.__enter__()
         self.addCleanup(quiet.__exit__, None, None, None)
+        for target, value in (('gnome_consumers', []), ('legacy_available', True)):
+            patched = patch.object(migration, target, return_value=value)
+            patched.start()
+            self.addCleanup(patched.stop)
 
     def activate(self, check=None):
         with patch.object(migration, 'preflight'), patch.object(migration, 'enabled', return_value=False), \
@@ -44,8 +50,8 @@ class KeyringTest(unittest.TestCase):
             migration.activate(self.paths)
             return ctl
 
-    def test_activation_backs_up_keyrings_and_preserves_pkcs11(self):
-        self.activate()
+    def test_activation_backs_up_keyrings_and_disables_unused_gnome(self):
+        ctl = self.activate()
         record = json.loads((self.paths.state / 'migration.json').read_text())
         self.assertEqual((Path(record['backup']) / 'keyrings/login.keyring').read_bytes(), b'encrypted-fixture')
         self.assertEqual(self.paths.selector.read_text(), 'oo7\n')
@@ -53,8 +59,10 @@ class KeyringTest(unittest.TestCase):
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
             if template:
                 self.assertEqual(path.read_bytes(), (migration.TEMPLATES / template).read_bytes())
-        self.assertIn('--components=pkcs11', (migration.TEMPLATES / 'gnome-pkcs11.conf').read_text())
-        self.assertNotIn('--components=secrets', (migration.TEMPLATES / 'gnome-pkcs11.conf').read_text())
+        for unit in migration.GNOME_UNITS:
+            target = self.paths.config / 'systemd/user' / unit
+            self.assertEqual(target.read_bytes(), b'', 'A zero-byte regular unit is a systemd mask')
+        ctl.assert_any_call('disable', '--now', *migration.GNOME_UNITS, check=False)
         self.assertEqual(self.paths.credential.read_bytes(), b'old-encrypted-credential')
 
     def test_failed_unlock_restores_previous_configuration(self):
@@ -107,6 +115,70 @@ class KeyringTest(unittest.TestCase):
         result = subprocess.run([sys.executable, str(helper), 'rollback'], capture_output=True, text=True)
         self.assertEqual(result.returncode, 2)
         self.assertIn('invalid choice', result.stderr)
+
+    def legacy_record(self):
+        old = {path: template for path, template in migration.files(self.paths).items()
+               if template in ('org.freedesktop.secrets.service', 'oo7-credentials.conf', 'gnome-keyring-secrets.desktop')
+               or path == self.paths.selector}
+        for path, template in old.items():
+            migration.write(path, b'oo7\n' if template is None else (migration.TEMPLATES / template).read_bytes())
+        legacy = migration.legacy_dropin(self.paths)
+        migration.write(legacy, b'[Service]\nExecStart=\nExecStart=/usr/bin/gnome-keyring-daemon --foreground --components=pkcs11\n')
+        previous = {str(path): None for path in [*old, legacy]}
+        record = {'files': previous, 'installed': {name: base64.b64encode(Path(name).read_bytes()).decode() for name in previous},
+                  'oo7_enabled': False, 'backup': str(self.paths.state / 'original-backup')}
+        self.paths.state.mkdir(parents=True)
+        migration.write(self.paths.state / 'migration.json', json.dumps(record).encode())
+        return legacy
+
+    def test_existing_pkcs11_setup_is_retired_without_restarting_oo7_and_preserves_original_record(self):
+        legacy = self.legacy_record()
+        with patch.object(migration, 'systemctl') as ctl, patch.object(migration, 'enabled', side_effect=lambda unit: unit.endswith('.socket')):
+            migration.refresh(self.paths)
+            ctl.assert_any_call('disable', '--now', *migration.GNOME_UNITS, check=False)
+            self.assertFalse(any('oo7-daemon.service' in call.args for call in ctl.call_args_list))
+        self.assertFalse(legacy.exists())
+        record = json.loads((self.paths.state / 'migration.json').read_text())
+        self.assertIn(str(legacy), record['files'], 'Preserve pre-migration configuration metadata')
+        self.assertNotIn(str(legacy), record['installed'])
+        self.assertEqual((self.paths.keyrings / 'login.keyring').read_bytes(), b'encrypted-fixture')
+        self.assertEqual(self.paths.credential.read_bytes(), b'old-encrypted-credential')
+        self.assertEqual(self.paths.selector.read_text(), 'oo7\n')
+        self.assertEqual((self.paths.config / 'systemd/user/gnome-keyring-daemon.socket').read_bytes(), b'')
+
+    def test_pkcs11_consumers_or_modified_legacy_files_block_retirement(self):
+        legacy = self.legacy_record()
+        with patch.object(migration, 'gnome_consumers', return_value=['geary']), patch.object(migration, 'systemctl') as ctl:
+            with self.assertRaisesRegex(ValueError, 'consumers need review'):
+                migration.refresh(self.paths)
+            ctl.assert_not_called()
+        self.assertTrue(legacy.exists())
+        legacy.write_text('local configuration\n')
+        with patch.object(migration, 'systemctl') as ctl:
+            with self.assertRaisesRegex(ValueError, 'configuration differs'):
+                migration.refresh(self.paths)
+            ctl.assert_not_called()
+        self.assertEqual(legacy.read_text(), 'local configuration\n')
+
+    def test_failed_initial_activation_without_gnome_restores_configuration_only(self):
+        with patch.object(migration, 'preflight'), patch.object(migration, 'enabled', return_value=False), \
+                patch.object(migration, 'legacy_available', return_value=False), \
+                patch.object(migration, 'systemctl') as ctl, patch.object(migration.subprocess, 'run'), \
+                patch.object(migration, 'wait_for_ready', side_effect=ValueError('still locked')):
+            with self.assertRaisesRegex(ValueError, 'still locked'):
+                migration.activate(self.paths)
+        self.assertNotIn(('restart', 'gnome-keyring-daemon.service'), [call.args for call in ctl.call_args_list])
+        self.assertFalse(self.paths.selector.exists())
+        self.assertFalse((self.paths.config / 'systemd/user/gnome-keyring-daemon.socket').exists())
+
+    def test_gnome_dependency_is_retained_only_for_unmigrated_hyprland(self):
+        environment = dict(os.environ, XDG_CONFIG_HOME=str(self.paths.config))
+        def packages():
+            return subprocess.check_output(['bash', '-c', 'source ./setup.sh; hyprland_packages'],
+                                           cwd=ROOT, env=environment, text=True).splitlines()
+        self.assertIn('gnome-keyring', packages())
+        migration.write(self.paths.selector, b'oo7\n')
+        self.assertNotIn('gnome-keyring', packages())
 
     def test_symlinked_keyring_and_config_are_rejected(self):
         outside = self.root / 'outside'
@@ -196,12 +268,13 @@ class KeyringTest(unittest.TestCase):
     def test_healthy_start_does_not_warn(self):
         self.paths.selector.parent.mkdir(parents=True)
         self.paths.selector.write_text('oo7\n')
-        with patch.object(keyring_session.subprocess, 'run'), \
+        with patch.object(keyring_session.subprocess, 'run') as run, \
                 patch.object(keyring_session, 'wait_for_ready') as ready, \
                 patch.object(keyring_session, 'warn') as warn:
             keyring_session.start(self.paths)
         ready.assert_called_once()
         warn.assert_not_called()
+        run.assert_called_once_with(['systemctl', '--user', 'start', 'oo7-daemon.service'], check=True, timeout=20)
 
     def test_service_failure_warns_without_trying_another_provider(self):
         self.paths.selector.parent.mkdir(parents=True)
@@ -264,6 +337,21 @@ class KeyringTest(unittest.TestCase):
         explicit = subprocess.check_output(['bash', str(ROOT / 'setup.sh'), '--dry-run', 'keyring'], text=True)
         self.assertIn('oo7>=0.7.3', explicit)
         self.assertIn('setup-oo7.sh', explicit)
+
+
+class GnomePkcs11ConsumersTest(unittest.TestCase):
+    def test_known_applications_and_explicit_provider_references_are_detected(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(legacy_gnome.shutil, 'which', return_value=None):
+            home = Path(directory)
+            config = home / '.config'
+            profile = config / 'zen/profile/pkcs11.txt'
+            profile.parent.mkdir(parents=True)
+            profile.write_text('library=\nname=NSS Internal PKCS #11 Module\n')
+            self.assertEqual(legacy_gnome.consumers(config, home), [])
+            profile.write_text('library=/usr/lib/pkcs11/gnome-keyring-pkcs11.so\n')
+            self.assertEqual(legacy_gnome.consumers(config, home), [str(profile)])
+            with patch.object(legacy_gnome.shutil, 'which', side_effect=lambda name: '/usr/bin/geary' if name == 'geary' else None):
+                self.assertIn('geary', legacy_gnome.consumers(config, home))
 
 
 @unittest.skipUnless(os.environ.get('ATELIER_OO7_DAEMON') and os.environ.get('ATELIER_OO7_LEGACY_FIXTURE'),

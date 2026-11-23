@@ -20,15 +20,15 @@ Run inside your graphical session, as your normal account:
 
 The four-stage wizard:
 
-1. Installs `oo7>=0.7.3`, systemd >=258, the shared tooling and retained GNOME
-   PKCS#11 dependency through `setup.sh keyring`. It checks this computer's TPM2.
+1. Installs `oo7>=0.7.3`, systemd >=258 and the shared tooling through
+   `setup.sh keyring`. It checks this computer's TPM2.
 2. Asks privately for the **current login keyring password**. A copied keyring is
    opened by oo7 on a private D-Bus session with isolated data/config/runtime
    directories. The real provider is not touched during this test. Only a
    password that unlocks the copied default collection is sealed.
 3. Backs up the original keyrings and provider settings, switches Secret Service
-   to oo7, restarts GNOME's daemon with **PKCS#11 only**, and starts oo7. If the
-   default collection does not unlock, it restores the prior provider settings.
+   to oo7, disables unused GNOME services/PKCS#11 integration, and starts oo7. If
+   the default collection does not unlock, it restores the prior provider settings.
 4. Verifies that oo7 owns Secret Service and its default collection is unlocked.
    This check reads lock state, not stored secrets.
 
@@ -39,7 +39,7 @@ needed for this mode; it uses the same credential for password and fingerprint
 sign-in. Desktop locking does not deliberately relock the keyring.
 
 Activation allows up to 15 seconds for Secret Service ownership and default
-collection unlock before rolling back. `desktop-keyring status` remains an
+collection unlock before undoing a failed initial activation. `desktop-keyring status` remains an
 immediate check, without readiness retries.
 
 At desktop startup, `desktop-keyring start` also checks readiness. A service
@@ -83,11 +83,48 @@ model](https://systemd.io/CREDENTIALS/).
 already-selected oo7 provider, it refreshes the generated settings only when
 they still match the last installed copies, then reloads unit definitions. It
 does not collect a password, reprovision credentials, migrate keyrings, or
-restart providers. The next provider start uses the refreshed settings.
+restart oo7. The next provider start uses the refreshed settings.
 
 On the other machine, pull these dotfiles and run the wizard there. A missing
 TPM or an older systemd stops provisioning before the working provider changes.
 Before activation, the shared Hyprland startup keeps using GNOME Keyring.
+
+### Retiring the unused GNOME PKCS#11 component
+
+The original migration retained GNOME's PKCS#11 daemon as a compatibility
+precaution. On mini-mecha the audit found no active consumer: the daemon had not
+started this boot, no process had its library open, and NSS registrations in
+Chromium's shared database, Firefox and Zen contained only the internal NSS
+module. The package's p11-kit configuration marks the provider obsolete and
+enables it only for Geary and Midori; neither application was installed.
+
+Existing installations retire this old integration with:
+
+```sh
+desktop-keyring refresh
+desktop-keyring status
+```
+
+Refresh validates the old managed files, extends the original migration record,
+and removes only the matching old PKCS#11 drop-in. It stops/disables the GNOME
+daemon and socket, installs regular zero-byte user unit masks, hides both GNOME
+autostarts, and disables only GNOME's p11-kit module with a blank `module:` user
+override. The system trust provider and other PKCS#11 modules remain available.
+oo7 is not restarted; stored keyrings, `user.keystore`, backups and the TPM
+credential are preserved.
+
+Before retiring the provider on another computer, the helper checks for the
+known Geary/Midori consumers and explicit GNOME provider references in browser,
+SSH and user p11-kit configuration. Actual consumers or locally modified managed
+files stop the cleanup for review instead of being overwritten.
+
+The shared setup no longer requires `gnome-keyring` for oo7-selected accounts.
+An independent installed package can still require it: on mini-mecha,
+`python-proton-keyring-linux` has an explicit `gnome-keyring` dependency, even
+though its runtime backend uses Secret Service. Pacman's dependency check blocks
+removing the package without breaking Proton VPN. Keeping that dependency
+installed does not require running the GNOME daemon or enabling its PKCS#11
+module. No dependency checks are bypassed.
 
 ## Verify and recover
 
@@ -107,7 +144,7 @@ The automatic credential covers keyrings encrypted with the supplied password;
 other collections with different passwords can still prompt.
 
 Once activation succeeds, oo7 is the selected provider. There is no command to
-switch back to GNOME Keyring. GNOME's retained daemon supplies PKCS#11 only.
+switch back to GNOME Keyring. Its unused daemon and PKCS#11 provider stay disabled.
 The installer still restores the pre-activation provider configuration if the
 initial activation fails, rather than leaving a half-installed provider.
 Existing migration backups and original keyrings are left untouched; they are

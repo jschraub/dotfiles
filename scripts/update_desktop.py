@@ -211,6 +211,9 @@ class Updater:
         selector = self.home / '.config/dotfiles/lock-screen'
         if selector.is_file() and selector.read_text().strip() == 'atelier':
             dependencies = [name for name in dependencies if name != 'hyprlock']
+        keyring = self.home / '.config/dotfiles/keyring'
+        if keyring.is_file() and keyring.read_text().strip() == 'oo7':
+            dependencies = [name for name in dependencies if name != 'gnome-keyring']
         if (self.system / 'etc/atelier/access').is_dir():
             dependencies.extend(entries['access'][0])
         dependencies = list(dict.fromkeys(dependencies))

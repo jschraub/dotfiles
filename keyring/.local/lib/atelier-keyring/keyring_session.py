@@ -38,8 +38,7 @@ def start(paths):
         subprocess.run(['gnome-keyring-daemon', '--start', '--components=secrets,pkcs11'], check=True)
         return
     try:
-        subprocess.run(['systemctl', '--user', 'start', 'gnome-keyring-daemon.socket',
-                        'oo7-daemon.service'], check=True, timeout=20)
+        subprocess.run(['systemctl', '--user', 'start', 'oo7-daemon.service'], check=True, timeout=20)
         wait_for_ready()
     except (OSError, ValueError, subprocess.SubprocessError):
         warn()

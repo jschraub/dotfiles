@@ -120,9 +120,9 @@ NetworkManager/Proton, BlueZ, PipeWire/WirePlumber, screenshots, portals, Miraca
 greetd/ReGreet, terminals and file manager remain in place. No root-owned
 authentication, greeter, idle/suspend or networking policies are replaced.
 
-An explicit [oo7/TPM migration](keyring.md) can replace GNOME Keyring's Secret
-Service role while retaining its PKCS#11 component. Ordinary desktop setup does
-not select or provision a new keyring provider.
+An explicit [oo7/TPM migration](keyring.md) replaces GNOME Keyring's Secret
+Service role and retires its unused PKCS#11 integration after checking for known
+consumers. Ordinary desktop setup does not select or provision a new keyring provider.
 
 Quickshell renders each machine's configured wallpaper only after decoding the
 image; Hyprpaper and its watcher are removed. See [wallpapers](wallpapers.md).

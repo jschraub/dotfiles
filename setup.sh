@@ -60,7 +60,7 @@ HANDLER[access]=handle_access
 
 LABEL[keyring]="oo7 Secret Service + machine-local TPM unlock (explicit migration)"
 OPTIONAL[keyring]=1
-PKGS[keyring]="oo7>=0.7.3 systemd>=258 tpm2-tss dbus python gnome-keyring libsecret libnotify"
+PKGS[keyring]="oo7>=0.7.3 systemd>=258 tpm2-tss dbus python libsecret libnotify"
 STOW[keyring]="keyring"
 HANDLER[keyring]=handle_keyring
 
@@ -211,11 +211,14 @@ handle_generic() {
 }
 
 hyprland_packages() {
-    local selected="" package
+    local selected="" keyring="" package
     local selector="${XDG_CONFIG_HOME:-$HOME/.config}/dotfiles/lock-screen"
     if [[ -r "$selector" ]]; then read -r selected < "$selector" || true; fi
+    local keyring_selector="${XDG_CONFIG_HOME:-$HOME/.config}/dotfiles/keyring"
+    if [[ -r "$keyring_selector" ]]; then read -r keyring < "$keyring_selector" || true; fi
     for package in ${PKGS[hyprland]}; do
         if [[ "$package" == hyprlock && "$selected" == atelier ]]; then continue; fi
+        if [[ "$package" == gnome-keyring && "$keyring" == oo7 ]]; then continue; fi
         printf '%s\n' "$package"
     done
 }

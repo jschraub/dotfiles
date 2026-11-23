@@ -330,10 +330,15 @@ class Audit:
         for name, target in {
             'org.freedesktop.secrets.service': data / 'dbus-1/services/org.freedesktop.secrets.service',
             'oo7-credentials.conf': config / 'systemd/user/oo7-daemon.service.d/20-atelier-credentials.conf',
-            'gnome-pkcs11.conf': config / 'systemd/user/gnome-keyring-daemon.service.d/20-atelier-pkcs11.conf',
             'gnome-keyring-secrets.desktop': config / 'autostart/gnome-keyring-secrets.desktop',
+            'gnome-keyring-pkcs11.desktop': config / 'autostart/gnome-keyring-pkcs11.desktop',
+            'gnome-keyring.module': config / 'pkcs11/modules/gnome-keyring.module',
         }.items():
             self.file(templates / name, target, mode=0o600)
+        for unit in ('gnome-keyring-daemon.service', 'gnome-keyring-daemon.socket'):
+            self.file(templates / 'masked-unit', config / 'systemd/user' / unit, mode=0o600)
+        if (config / 'systemd/user/gnome-keyring-daemon.service.d/20-atelier-pkcs11.conf').exists():
+            self.report('DRIFT', 'legacy GNOME PKCS#11 drop-in', 'run desktop-keyring refresh to retire the old configuration')
         credential = config / 'credstore.encrypted/oo7.keyring-encryption-password'
         try:
             metadata = credential.stat()
@@ -394,6 +399,9 @@ class Audit:
             selector = config / 'dotfiles/lock-screen'
             if selector.is_file() and selector.read_text().strip() == 'atelier':
                 packages = [package for package in packages if package != 'hyprlock']
+            keyring = config / 'dotfiles/keyring'
+            if keyring.is_file() and keyring.read_text().strip() == 'oo7':
+                packages = [package for package in packages if package != 'gnome-keyring']
         self.packages(packages)
         for package in stow:
             self.stow(package)

@@ -211,7 +211,7 @@ run_wizard() {
 
   stage "Back up keyrings and switch Secret Service"
   say "A private backup preserves original keyrings and provider configuration."
-  say "oo7 will migrate supported keyrings; GNOME's PKCS#11 component stays available."
+  say "oo7 will migrate supported keyrings; unused GNOME services and its obsolete PKCS#11 provider are disabled."
   say "No logout, greetd restart or fingerprint enrollment is performed."
   confirm "Switch this account to oo7 now?" || return 1
   "$helper" activate

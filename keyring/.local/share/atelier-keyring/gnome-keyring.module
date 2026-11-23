@@ -1,0 +1,2 @@
+# Disable GNOME's obsolete provider; retain the system trust and other modules.
+module:
