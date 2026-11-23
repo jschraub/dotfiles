@@ -18,6 +18,12 @@ QS = os.environ.get('ATELIER_QS_BINARY', shutil.which('qs') or 'qs')
 @unittest.skipUnless(os.environ.get('ATELIER_GUI_TESTS') == '1', 'opt-in: greeter adapter with a fake private server')
 class GreetdMethodsProtocolTest(unittest.TestCase):
     def test_cancelled_scan_and_delayed_cancel_reply_cannot_launch_the_replacement(self):
+        self.run_cancel_test(sleep=False)
+
+    def test_sleep_acknowledges_only_cancel_reply_and_defers_new_auth_until_wake(self):
+        self.run_cancel_test(sleep=True)
+
+    def run_cancel_test(self, *, sleep):
         with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryFile(mode='w+') as log:
             root = Path(directory)
             shutil.copyfile(ROOT / 'quickshell/.config/quickshell/atelier/GreeterController.qml', root / 'GreeterController.qml')
@@ -32,6 +38,7 @@ class GreetdMethodsProtocolTest(unittest.TestCase):
             listener.settimeout(10)
             requests, failures = [], []
             scanning, launched = threading.Event(), threading.Event()
+            cancelling, allow_cancel = threading.Event(), threading.Event()
 
             def serve():
                 try:
@@ -72,7 +79,12 @@ class GreetdMethodsProtocolTest(unittest.TestCase):
                                     raise AssertionError('Unexpected fake response')
                             elif kind == 'cancel_session':
                                 send({'type': 'error', 'error_type': 'auth_error', 'description': 'old scan cancelled'})
-                                time.sleep(.15)
+                                cancelling.set()
+                                if sleep:
+                                    if not allow_cancel.wait(5):
+                                        raise AssertionError('Timed out waiting for test to release cancel reply')
+                                else:
+                                    time.sleep(.15)
                                 send({'type': 'success'})  # Must be discarded, not treated as authentication.
                             elif kind == 'start_session':
                                 launched.set()
@@ -98,7 +110,25 @@ class GreetdMethodsProtocolTest(unittest.TestCase):
                     self.assertEqual(result.returncode, 0, result.stderr)
                     return result.stdout
 
-                ipc('password')
+                ipc('sleep' if sleep else 'password')
+                if sleep:
+                    self.assertTrue(cancelling.wait(5))
+                    before = json.loads(ipc('status'))
+                    self.assertEqual(before['sleepAcknowledgements'], [], 'An auth failure is not a cancel acknowledgement')
+                    self.assertTrue(before['switching'])
+                    allow_cancel.set()
+                    deadline = time.monotonic() + 5
+                    while time.monotonic() < deadline:
+                        after = json.loads(ipc('status'))
+                        if after['sleepAcknowledgements']:
+                            break
+                        time.sleep(.02)
+                    self.assertEqual(after['sleepAcknowledgements'], [1])
+                    self.assertFalse(after['needsResponse'])
+                    self.assertEqual(sum(r['type'] == 'create_session' for r in requests), 1,
+                                     'Do not restart authentication while sleeping')
+                    self.assertFalse(launched.is_set())
+                    ipc('wake')
                 deadline = time.monotonic() + 5
                 state = {}
                 while time.monotonic() < deadline:

@@ -13,6 +13,9 @@ ShellRoot {
     FingerprintPolicy {
         id: fingerprintPolicy
         active: sessionLock.secure && !lockController.unlocked && Quickshell.env("ATELIER_FINGERPRINT") !== "0"
+        // PamContext 0.3.2 reports inactive before its worker is destroyed and
+        // emits no abort-completed signal. Do not acknowledge from activeChanged:
+        // the monitor's bounded timeout remains the honest fallback here.
     }
     LockController {
         id: lockController

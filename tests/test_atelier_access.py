@@ -126,6 +126,13 @@ class AccessUiTest(unittest.TestCase):
                 self.assertFalse(state()['toggleVisible'])
                 ipc('hardware', 'true', 'true', 'true')
                 self.assertEqual(state()['method'], 'password', 'Reader recovery must preserve the chosen password method')
+                cancellations = state()['methodCancellations']
+                ipc('methodSleep')
+                self.assertEqual(state()['sleepAcknowledgements'], [7], 'Selected password path needs no fingerprint cancellation')
+                self.assertEqual(state()['methodCancellations'], cancellations)
+                self.assertEqual(state()['responseLength'], typed_length, 'Sleep must preserve typed password')
+                ipc('methodWake')
+                self.assertEqual(state()['responseLength'], typed_length)
                 ipc('toggle'); ipc('methodPrompt'); ipc('methodLaunch'); ipc('methodLaunch')
                 self.assertEqual(state()['methodLaunches'], [['/usr/bin/start-hyprland']])
                 ipc('readerless')

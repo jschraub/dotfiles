@@ -66,7 +66,14 @@ ShellRoot {
     FakeGreetd { id: methodService }
     FakeGreetd { id: readerlessService }
     Atelier.GreeterController { id: loginController; service: greetdFake; hardwareReady: true }
-    Atelier.GreeterController { id: methodController; service: methodService }
+    Atelier.GreeterController {
+        id: methodController
+        service: methodService
+        property var sleepAcknowledgements: []
+        onFingerprintStoppedForSleep: generation => {
+            sleepAcknowledgements = sleepAcknowledgements.concat([generation]);
+        }
+    }
     Atelier.GreeterController { id: readerlessController; service: readerlessService }
     QtObject { id: accountInfo; property var users: [{ user: "fixture", name: "Fixture User", avatar: "" }]; property string background: "" }
     FloatingWindow {
@@ -109,6 +116,15 @@ ShellRoot {
         function hardware(present: bool, allowed: bool, ready: bool): void { methodController.updateHardware(present, allowed, ready, allowed ? "" : "Fingerprint paused while the lid is closed"); }
         function methodPrompt(): void { methodService.authMessage("Atelier authentication method:", false, true, false); }
         function methodPassword(): void { methodService.authMessage("Password:", false, true, false); }
+        function methodSleep(): void {
+            methodController.sleeping = true;
+            methodController.updateHardware(true, false, true, "Fingerprint paused for sleep/resume");
+            methodController.prepareForSleep(7);
+        }
+        function methodWake(): void {
+            methodController.updateHardware(true, true, true, "");
+            methodController.sleeping = false;
+        }
         function methodFailure(): void { methodService.authFailure("expired"); methodService.state = GreetdState.Inactive; }
         function toggle(): void {
             const control = find(window.contentItem, "access-method-toggle");
@@ -139,6 +155,7 @@ ShellRoot {
                 method: methodController.method, methodCreates: methodService.creates.length,
                 methodResponses: methodService.methodResponses, methodLaunches: methodService.launches,
                 methodExpired: methodController.fingerprintExpired, methodCancellations: methodService.cancellations,
+                sleepAcknowledgements: methodController.sleepAcknowledgements,
                 inputVisible: input && input.visible, toggleVisible: toggle && toggle.visible,
                 toggleEnabled: toggle && toggle.enabled, submitText: submit ? submit.text : "",
                 readerlessMethod: readerlessController.method, readerlessResponses: readerlessService.methodResponses });

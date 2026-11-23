@@ -60,7 +60,7 @@ HANDLER[access]=handle_access
 
 LABEL[keyring]="oo7 Secret Service + machine-local TPM unlock (explicit migration)"
 OPTIONAL[keyring]=1
-PKGS[keyring]="oo7>=0.7.3 systemd>=258 tpm2-tss dbus python gnome-keyring libsecret"
+PKGS[keyring]="oo7>=0.7.3 systemd>=258 tpm2-tss dbus python gnome-keyring libsecret libnotify"
 STOW[keyring]="keyring"
 HANDLER[keyring]=handle_keyring
 

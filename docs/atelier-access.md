@@ -85,8 +85,17 @@ API references: [Wayland session lock](https://quickshell.org/docs/v0.3.0/types/
 - **Fingerprint lifecycle:** a separate, root-installed monitor watches logind's
   sleep notifications and the actual kernel lid state. It disables scanning
   while the lid is closed, sleep is in progress, or the reader is unavailable.
-  It holds a delay inhibitor long enough to request fingerprint-PAM cancellation
-  before sleep completes, then reprobes after a short wake-up delay. The password
+  It requests fingerprint cancellation under a logind delay inhibitor. The
+  greeter releases it after the actual greetd cancellation acknowledgement, or
+  immediately when its managed password branch is already selected. No new
+  greeter authentication starts during sleep preparation. A 1.5-second timeout
+  releases the inhibitor if cancellation stalls or the UI stops responding;
+  logind's configured inhibitor limit remains authoritative.
+  Quickshell 0.3.2's locker PAM API reports `active=false` before destroying its
+  worker and has no abort-completed signal. The locker therefore uses the
+  bounded timeout, never a false acknowledgement based on `activeChanged`.
+  This follows the upstream [PAM context implementation at 0.3.2](https://github.com/quickshell-mirror/quickshell/blob/v0.3.2/src/services/pam/qml.cpp#L96-L103).
+  The monitor reprobes after a short wake-up delay. The password
   conversation and typed text stay intact across these changes. Reader discovery
   and PAM failures are retried, and fingerprint feedback is shown separately.
   A stale success after cancellation cannot unlock the session. The monitor

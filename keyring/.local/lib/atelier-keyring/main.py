@@ -7,21 +7,18 @@ import sys
 
 from credentials import preflight, private_directory, provision
 from health import check
-from migration import activate, refresh, rollback
+from migration import activate, refresh
 from paths import Paths
+from keyring_session import start
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=('preflight', 'provision', 'activate', 'status', 'start', 'rollback', 'refresh'))
+    parser.add_argument('command', choices=('preflight', 'provision', 'activate', 'status', 'start', 'refresh'))
     command = parser.parse_args().command
     paths = Paths.current()
     if command == 'start':
-        if paths.selector.is_file() and paths.selector.read_text().strip() == 'oo7':
-            subprocess.run(['systemctl', '--user', 'start', 'gnome-keyring-daemon.socket',
-                            'oo7-daemon.service'], check=True)
-        else:
-            subprocess.run(['gnome-keyring-daemon', '--start', '--components=secrets,pkcs11'], check=True)
+        start(paths)
         return
     if command == 'preflight':
         preflight()
@@ -35,7 +32,7 @@ def main():
     private_directory(paths.state)
     with (paths.state / 'setup.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        {'provision': provision, 'activate': activate, 'rollback': rollback, 'refresh': refresh}[command](paths)
+        {'provision': provision, 'activate': activate, 'refresh': refresh}[command](paths)
 
 
 if __name__ == '__main__':

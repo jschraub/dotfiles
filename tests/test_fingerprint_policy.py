@@ -76,6 +76,9 @@ class FingerprintLifecycleTest(unittest.TestCase):
         monitor.resume_until = 0
         monitor.inhibitor = 123
         monitor.release_source = None
+        monitor.sleep_generation = 0
+        monitor.awaiting_generation = 0
+        monitor.input_buffer = b''
         monitor.reader = True
         monitor.present = True
         monitor.ready = True
@@ -97,10 +100,83 @@ class FingerprintLifecycleTest(unittest.TestCase):
             self.assertFalse(json.loads(output.getvalue())['allowed'])
             close.assert_not_called()
             self.assertEqual(monitor.inhibitor, 123)
-            self.assertEqual(timer.call_args.args[0], 750)
+            self.assertEqual(timer.call_args.args[0], fingerprint_monitor.CANCELLATION_TIMEOUT_MS)
+            self.assertEqual(json.loads(output.getvalue())['sleepGeneration'], 1)
+            self.assertTrue(json.loads(output.getvalue())['sleeping'])
             timer.call_args.args[1]()
             close.assert_called_once_with(123)
             self.assertIsNone(monitor.inhibitor)
+            self.assertEqual(monitor.awaiting_generation, 0)
+
+    def test_current_acknowledgement_releases_inhibitor_and_cancels_timeout(self):
+        monitor = self.monitor()
+        monitor.sleeping = True
+        monitor.awaiting_generation = 2
+        monitor.release_source = 42
+        with patch.object(fingerprint_monitor.os, 'close') as close, \
+                patch.object(fingerprint_monitor.GLib, 'source_remove') as remove:
+            monitor.acknowledge({'type': 'fingerprint-stopped', 'generation': 2})
+            monitor.acknowledge({'type': 'fingerprint-stopped', 'generation': 2})
+        close.assert_called_once_with(123)
+        remove.assert_called_once_with(42)
+        self.assertEqual(monitor.awaiting_generation, 0)
+
+    def test_stale_malformed_and_wrong_generation_acknowledgements_do_not_release(self):
+        monitor = self.monitor()
+        monitor.sleeping = True
+        monitor.awaiting_generation = 2
+        for value in (None, [], {}, {'type': 'fingerprint-stopped', 'generation': 1},
+                      {'type': 'fingerprint-stopped', 'generation': True},
+                      {'type': 'fingerprint-stopped', 'generation': '2'},
+                      {'type': 'anything', 'generation': 2}):
+            with self.subTest(value=value), patch.object(fingerprint_monitor.os, 'close') as close:
+                monitor.acknowledge(value)
+                close.assert_not_called()
+        self.assertEqual(monitor.inhibitor, 123)
+
+    def test_late_sleep_acknowledgement_cannot_release_new_awake_inhibitor(self):
+        monitor = self.monitor()
+        monitor.awaiting_generation = 2
+        with patch.object(fingerprint_monitor.os, 'close') as close:
+            monitor.acknowledge({'type': 'fingerprint-stopped', 'generation': 2})
+        close.assert_not_called()
+
+    def test_previous_sleep_acknowledgement_cannot_release_next_sleep_inhibitor(self):
+        monitor = self.monitor()
+        with patch.object(monitor, 'publish'), \
+                patch.object(fingerprint_monitor.GLib, 'timeout_add', return_value=42), \
+                patch.object(fingerprint_monitor.GLib, 'source_remove'), \
+                patch.object(fingerprint_monitor.os, 'close') as close:
+            monitor.prepare(None, None, None, None, None, fingerprint_monitor.GLib.Variant('(b)', (True,)))
+            monitor.acknowledge({'type': 'fingerprint-stopped', 'generation': 1})
+            self.assertEqual(close.call_count, 1)
+            monitor.prepare(None, None, None, None, None, fingerprint_monitor.GLib.Variant('(b)', (False,)))
+            monitor.inhibitor = 456
+            monitor.prepare(None, None, None, None, None, fingerprint_monitor.GLib.Variant('(b)', (True,)))
+            monitor.acknowledge({'type': 'fingerprint-stopped', 'generation': 1})
+            self.assertEqual(close.call_count, 1)
+            self.assertEqual(monitor.awaiting_generation, 2)
+            monitor.acknowledge({'type': 'fingerprint-stopped', 'generation': 2})
+            self.assertEqual(close.call_args.args, (456,))
+
+    def test_private_ack_input_handles_partial_lines_and_ignores_invalid_json(self):
+        monitor = self.monitor()
+        with patch.object(fingerprint_monitor.os, 'read', side_effect=[
+                b'not-json\n{"type":"fingerprint-', b'stopped","generation":1}\n']), \
+                patch.object(monitor, 'acknowledge') as ack:
+            monitor.read_ack(None, None)
+            ack.assert_not_called()
+            monitor.read_ack(None, None)
+        ack.assert_called_once_with({'type': 'fingerprint-stopped', 'generation': 1})
+
+    def test_disconnected_ack_pipe_leaves_timeout_in_place(self):
+        monitor = self.monitor()
+        monitor.release_source = 42
+        with patch.object(fingerprint_monitor.os, 'read', return_value=b''), \
+                patch.object(fingerprint_monitor.os, 'close') as close:
+            self.assertEqual(monitor.read_ack(None, None), fingerprint_monitor.GLib.SOURCE_REMOVE)
+        close.assert_not_called()
+        self.assertEqual(monitor.release_source, 42)
 
     def test_wake_waits_for_hardware_before_reprobing(self):
         monitor = self.monitor()

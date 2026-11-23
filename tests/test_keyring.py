@@ -17,6 +17,7 @@ sys.path.insert(0, str(LIBRARY))
 import credentials
 import health
 import migration
+import keyring_session
 from paths import CREDENTIAL, Paths
 sys.path.pop(0)
 
@@ -39,7 +40,7 @@ class KeyringTest(unittest.TestCase):
     def activate(self, check=None):
         with patch.object(migration, 'preflight'), patch.object(migration, 'enabled', return_value=False), \
                 patch.object(migration, 'systemctl') as ctl, patch.object(migration.subprocess, 'run'), \
-                patch.object(migration, 'check', side_effect=check):
+                patch.object(migration, 'wait_for_ready', side_effect=check):
             migration.activate(self.paths)
             return ctl
 
@@ -65,7 +66,7 @@ class KeyringTest(unittest.TestCase):
         self.assertEqual(previous.read_bytes(), b'previous provider configuration')
         self.assertFalse(self.paths.selector.exists())
         self.assertFalse((self.paths.state / 'migration.json').exists())
-        self.assertTrue(list(self.paths.state.glob('migration-rolled-back-*')))
+        self.assertTrue(list(self.paths.state.glob('migration-failed-*')))
         self.assertEqual((self.paths.keyrings / 'login.keyring').read_bytes(), b'encrypted-fixture')
 
     def test_failed_tpm_precheck_never_stops_working_service(self):
@@ -89,16 +90,23 @@ class KeyringTest(unittest.TestCase):
             migration.refresh(self.paths)
         self.assertEqual(edited.read_text(), 'local override\n')
 
-    def test_rollback_preserves_post_migration_data(self):
-        self.activate()
+    def test_failed_activation_preserves_oo7_data(self):
         migrated = self.paths.keyrings / 'v1/login.keyring'
         migrated.parent.mkdir()
         migrated.write_bytes(b'new-oo7-data')
-        with patch.object(migration, 'systemctl'):
-            migration.rollback(self.paths)
+        with self.assertRaisesRegex(ValueError, 'still locked'):
+            self.activate(ValueError('still locked'))
         self.assertEqual(migrated.read_bytes(), b'new-oo7-data')
         self.assertEqual(self.paths.credential.read_bytes(), b'old-encrypted-credential')
         self.assertFalse(self.paths.selector.exists())
+
+    def test_cli_does_not_offer_or_accept_gnome_rollback(self):
+        helper = ROOT / 'keyring/.local/bin/desktop-keyring'
+        help_text = subprocess.check_output([sys.executable, str(helper), '--help'], text=True)
+        self.assertNotIn('rollback', help_text)
+        result = subprocess.run([sys.executable, str(helper), 'rollback'], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('invalid choice', result.stderr)
 
     def test_symlinked_keyring_and_config_are_rejected(self):
         outside = self.root / 'outside'
@@ -154,6 +162,95 @@ class KeyringTest(unittest.TestCase):
                 patch.object(health.Path, 'resolve', return_value=Path('/usr/lib/oo7-daemon')):
             with self.assertRaisesRegex(ValueError, 'still locked'):
                 health.check()
+
+    def test_readiness_retries_until_unlocked(self):
+        with patch.object(health, 'check', side_effect=[ValueError('locked'), None]) as probe, \
+                patch.object(health.time, 'sleep') as sleep:
+            health.wait_for_ready()
+        self.assertEqual(probe.call_count, 2)
+        sleep.assert_called_once()
+
+    def test_readiness_deadline_does_not_accept_a_locked_collection(self):
+        with patch.object(health.time, 'monotonic', side_effect=[0, 0, 15, 15]), \
+                patch.object(health, 'check', side_effect=ValueError('still locked')) as probe, \
+                patch.object(health.time, 'sleep'):
+            with self.assertRaisesRegex(ValueError, 'still locked'):
+                health.wait_for_ready()
+        self.assertEqual(probe.call_count, 1)
+
+    def test_selected_provider_failure_warns_without_fallback_or_reprovisioning(self):
+        self.paths.selector.parent.mkdir(parents=True)
+        self.paths.selector.write_text('oo7\n')
+        with patch.object(keyring_session.subprocess, 'run') as run, \
+                patch.object(keyring_session, 'wait_for_ready', side_effect=ValueError('locked')), \
+                patch.object(keyring_session, 'warn') as warn, \
+                patch.object(credentials, 'provision') as provision:
+            with self.assertRaisesRegex(ValueError, 'desktop login is unaffected'):
+                keyring_session.start(self.paths)
+        warn.assert_called_once()
+        provision.assert_not_called()
+        self.assertEqual(run.call_count, 1)
+        self.assertNotIn('--components=secrets,pkcs11', run.call_args.args[0])
+        self.assertEqual(self.paths.selector.read_text(), 'oo7\n')
+
+    def test_healthy_start_does_not_warn(self):
+        self.paths.selector.parent.mkdir(parents=True)
+        self.paths.selector.write_text('oo7\n')
+        with patch.object(keyring_session.subprocess, 'run'), \
+                patch.object(keyring_session, 'wait_for_ready') as ready, \
+                patch.object(keyring_session, 'warn') as warn:
+            keyring_session.start(self.paths)
+        ready.assert_called_once()
+        warn.assert_not_called()
+
+    def test_service_failure_warns_without_trying_another_provider(self):
+        self.paths.selector.parent.mkdir(parents=True)
+        self.paths.selector.write_text('oo7\n')
+        with patch.object(keyring_session.subprocess, 'run',
+                          side_effect=subprocess.CalledProcessError(1, ['systemctl'])) as run, \
+                patch.object(keyring_session, 'wait_for_ready') as ready, \
+                patch.object(keyring_session, 'warn') as warn:
+            with self.assertRaisesRegex(ValueError, 'desktop login is unaffected'):
+                keyring_session.start(self.paths)
+        self.assertEqual(run.call_count, 1)
+        ready.assert_not_called()
+        warn.assert_called_once()
+
+    def test_unselected_start_retains_the_previous_provider(self):
+        with patch.object(keyring_session.subprocess, 'run') as run, \
+                patch.object(keyring_session, 'wait_for_ready') as ready, \
+                patch.object(keyring_session, 'warn') as warn:
+            keyring_session.start(self.paths)
+        run.assert_called_once_with(
+            ['gnome-keyring-daemon', '--start', '--components=secrets,pkcs11'], check=True)
+        ready.assert_not_called()
+        warn.assert_not_called()
+
+    def test_readiness_retries_bus_timeouts(self):
+        with patch.object(health, 'check', side_effect=[
+                subprocess.TimeoutExpired('busctl', 1), None]) as probe, \
+                patch.object(health.time, 'sleep'):
+            health.wait_for_ready()
+        self.assertEqual(probe.call_count, 2)
+
+    def test_warning_waits_for_notification_owner(self):
+        with patch.object(keyring_session.subprocess, 'run', side_effect=[
+                subprocess.CompletedProcess([], 0, 'b false\n'),
+                subprocess.CompletedProcess([], 0, 'b true\n'),
+                subprocess.CompletedProcess([], 0)]) as run, \
+                patch.object(keyring_session.time, 'sleep'), \
+                patch.object(keyring_session.sys, 'stderr', io.StringIO()):
+            keyring_session.warn()
+        self.assertEqual(run.call_count, 3)
+        self.assertEqual(run.call_args.args[0][0], 'notify-send')
+
+    def test_warning_timeout_keeps_diagnostic_and_does_not_activate_a_provider(self):
+        with patch.object(keyring_session.time, 'monotonic', side_effect=[0, 11]), \
+                patch.object(keyring_session.subprocess, 'run') as run, \
+                patch.object(keyring_session.sys, 'stderr', io.StringIO()) as stderr:
+            keyring_session.warn()
+        run.assert_not_called()
+        self.assertIn('desktop-keyring status', stderr.getvalue())
 
     def test_status_understands_busctl_method_and_property_encodings(self):
         for payload, expected in (('{"type":"u","data":[1234]}', 1234),

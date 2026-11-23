@@ -221,7 +221,7 @@ run_wizard() {
   step "After a convenient fresh login or reboot, run: desktop-keyring status"
   step "Test an app that stores credentials, then fingerprint lock/unlock and suspend/resume."
   say "Repeat this wizard on each computer; credentials and keyrings are never synced by Git."
-  say "Recovery: desktop-keyring rollback (preserves oo7 data and original keyring backups)."
+  say "oo7 remains the selected provider. Keep your keyring password independently of this computer."
   finish
 }
 

@@ -14,11 +14,17 @@ ShellRoot {
         }
     }
     GreetdTransport { id: signInService }
-    GreeterController { id: loginController; service: signInService }
+    GreeterController {
+        id: loginController
+        service: signInService
+        sleeping: fingerprintPolicy.sleeping
+        onFingerprintStoppedForSleep: generation => fingerprintPolicy.acknowledgeSleep(generation)
+    }
     FingerprintPolicy {
         id: fingerprintPolicy
         active: true
         greeter: true
+        onSleepRequested: generation => loginController.prepareForSleep(generation)
         function update() { loginController.updateHardware(present, allowed, ready, message); }
         onPresentChanged: update()
         onAllowedChanged: update()

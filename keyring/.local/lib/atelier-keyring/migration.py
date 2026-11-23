@@ -1,4 +1,4 @@
-"""Reversible provider selection with private backups and exact-file rollback."""
+"""One-way oo7 selection with transactional cleanup if initial activation fails."""
 import base64
 from datetime import datetime
 import json
@@ -8,7 +8,7 @@ import shutil
 import subprocess
 
 from credentials import preflight, private_directory
-from health import check
+from health import wait_for_ready
 
 TEMPLATES = Path(__file__).resolve().parents[2] / 'share/atelier-keyring'
 
@@ -54,7 +54,7 @@ def backup(paths):
     private_directory(paths.state)
     manifest = paths.state / 'migration.json'
     if manifest.exists():
-        raise ValueError('A migration record already exists; use status or rollback before migrating again')
+        raise ValueError('A migration record already exists; inspect status and the record before retrying activation')
     # Reject symlinks in the data being backed up rather than copying outside it.
     if paths.keyrings.is_symlink() or any(p.is_symlink() for p in paths.keyrings.rglob('*')):
         raise ValueError('Resolve symlinks in the keyring directory before migration')
@@ -75,9 +75,9 @@ def backup(paths):
     return record
 
 
-def rollback(paths):
+def _restore_failed_activation(paths, record):
+    """Undo only the activation currently in progress, not a completed migration."""
     manifest = paths.state / 'migration.json'
-    record = json.loads(manifest.read_text())
     # Only restore the paths the current program owns, never arbitrary manifest paths.
     if set(record['files']) != {str(path) for path in files(paths)}:
         raise ValueError('Migration record paths do not match this account')
@@ -87,15 +87,15 @@ def rollback(paths):
     for name, content in record['files'].items():
         path = Path(name)
         if path.is_symlink():
-            raise ValueError(f'Refusing to overwrite local symlink during rollback: {path}')
+            raise ValueError(f'Refusing to overwrite local symlink after failed activation: {path}')
         if content is None:
             path.unlink(missing_ok=True)
         else:
             write(path, base64.b64decode(content))
     systemctl('daemon-reload')
     systemctl('restart', 'gnome-keyring-daemon.service')
-    manifest.rename(manifest.with_name('migration-rolled-back-' + datetime.now().strftime('%Y%m%d%H%M%S%f') + '.json'))
-    print('Previous provider configuration restored. New oo7 data and the encrypted credential were preserved.')
+    manifest.rename(manifest.with_name('migration-failed-' + datetime.now().strftime('%Y%m%d%H%M%S%f') + '.json'))
+    print('Activation failed; pre-activation provider configuration restored. Keyring data and the encrypted credential were preserved.')
     print('Backup:', record['backup'])
 
 
@@ -120,12 +120,12 @@ def activate(paths):
         # Restart with PKCS#11 only, relinquishing org.freedesktop.secrets.
         systemctl('restart', 'gnome-keyring-daemon.service')
         systemctl('enable', '--now', 'oo7-daemon.service')
-        check()
+        wait_for_ready()
         write(paths.selector, b'oo7\n')
         record['installed'] = {str(path): base64.b64encode(path.read_bytes()).decode() for path in files(paths)}
         write(paths.state / 'migration.json', json.dumps(record, indent=2).encode())
     except BaseException:
-        rollback(paths)
+        _restore_failed_activation(paths, record)
         raise
     print('oo7 selected. Original keyrings backed up at:', record['backup'])
     print('Test a fresh login and suspend/resume; retain the backup and recovery password.')

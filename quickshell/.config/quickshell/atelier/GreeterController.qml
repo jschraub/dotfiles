@@ -27,10 +27,32 @@ QtObject {
     property bool launching: false
     property bool powerPending: false
     property string powerAction: ""
+    property int sleepGeneration: 0
+    property bool sleeping: false
+    onSleepingChanged: if (!sleeping && pendingBegin) Qt.callLater(root.begin)
     readonly property bool busy: switching || requested || powerPending || service.state !== GreetdState.Inactive
     readonly property bool canSwitchMethod: selectionSupported && hardwareReady && !switching && !powerPending && !launching
     readonly property bool canRestartFingerprint: selectionSupported && method === "fingerprint" && fingerprintExpired && fingerprintAllowed && !switching && !powerPending && !launching
     signal clearResponse()
+    signal fingerprintStoppedForSleep(int generation)
+    function prepareForSleep(generation) {
+        sleepGeneration = generation;
+        // Hardware policy can already have initiated a method switch. Only its
+        // cancel acknowledgement, not Inactive or a failure reply, ends the wait.
+        if (switching) return;
+        if (selectionSupported && attemptMethod === "password") {
+            acknowledgeSleep();
+            return;
+        }
+        method = "password";
+        restartConversation(true);
+    }
+    function acknowledgeSleep() {
+        if (sleepGeneration <= 0) return;
+        const generation = sleepGeneration;
+        sleepGeneration = 0;
+        fingerprintStoppedForSleep(generation);
+    }
     function selectUser(name) {
         if (busy) return;
         clearResponse(); responseRequired = false; error = false; message = "";
@@ -38,6 +60,7 @@ QtObject {
     }
     function begin() {
         if (!user || switching || powerPending || launching) return;
+        if (sleeping) { pendingBegin = true; return; }
         if (!hardwareReady || !service.available) { pendingBegin = true; return; }
         if (requested || service.state !== GreetdState.Inactive) return;
         pendingBegin = false;
@@ -69,11 +92,11 @@ QtObject {
         if (!canRestartFingerprint) return;
         restartConversation();
     }
-    function restartConversation() {
+    function restartConversation(forceCancel = false) {
         if (switching) return;
         requested = false; pendingBegin = false; responseRequired = false;
         choiceSent = false; fingerprintExpired = false; switching = true; clearResponse();
-        if (service.available && service.state !== GreetdState.Inactive) service.cancelSession();
+        if (service.available && (forceCancel || service.state !== GreetdState.Inactive)) service.cancelSession();
         else queueRestart();
     }
     function queueRestart() {
@@ -107,7 +130,10 @@ QtObject {
         // separate greetd message. Account selection precedes a new conversation.
         function onStateChanged() { if (root.service.state === GreetdState.Inactive) root.requested = false; }
         function onAvailableChanged() { if (root.service.available && root.pendingBegin) Qt.callLater(root.begin); }
-        function onCancelled() { if (root.switching) root.queueRestart(); }
+        function onCancelled() {
+            root.acknowledgeSleep();
+            if (root.switching) root.queueRestart();
+        }
         function onAuthMessage(message, error, responseRequired, echoResponse) {
             if (!root.requested || root.switching || root.powerPending || root.launching) return;
             if (responseRequired && message === "Atelier authentication method:") {

@@ -38,6 +38,17 @@ the TPM credential loads successfully. No `pam_oo7` login-password handoff is
 needed for this mode; it uses the same credential for password and fingerprint
 sign-in. Desktop locking does not deliberately relock the keyring.
 
+Activation allows up to 15 seconds for Secret Service ownership and default
+collection unlock before rolling back. `desktop-keyring status` remains an
+immediate check, without readiness retries.
+
+At desktop startup, `desktop-keyring start` also checks readiness. A service
+failure or locked collection produces a critical **Keyring unavailable**
+notification with diagnostic commands. The helper waits briefly for the desktop
+notification service; if notifications cannot be delivered, it still writes a
+diagnostic to stderr. Login proceeds independently. It never selects another
+provider, reprovisions a credential, or changes PAM to recover automatically.
+
 This does **not** change the fingerprint reader driver or greetd's sequential
 PAM conversation. The [sign-in method toggle](atelier-access.md) offers explicit
 fingerprint/password selection and fingerprint restart instead of concurrency.
@@ -54,7 +65,7 @@ not repair fingerprint authentication.
 | TPM credential | `$XDG_CONFIG_HOME/credstore.encrypted/oo7.keyring-encryption-password` | No |
 | oo7 encrypted keyrings | `$XDG_DATA_HOME/keyrings/v1/` | No |
 | Original keyrings and provider backup | `$XDG_STATE_HOME/atelier/keyring/backup-*` | No |
-| Migration/rollback record | `$XDG_STATE_HOME/atelier/keyring/migration.json` | No |
+| Migration and installed-configuration record | `$XDG_STATE_HOME/atelier/keyring/migration.json` | No |
 
 XDG defaults are `~/.config`, `~/.local/share` and `~/.local/state`. The backup
 and credential directories are private; files are mode 600. The provisioning
@@ -95,17 +106,12 @@ Secret portal is configured for GNOME Keyring, review that selection separately.
 The automatic credential covers keyrings encrypted with the supplied password;
 other collections with different passwords can still prompt.
 
-To return to the previous provider:
-
-```sh
-desktop-keyring rollback
-```
-
-Rollback restores the exact saved provider configuration, stops/disables oo7
-when this migration enabled it, reloads units, and restarts the previous GNOME
-daemon configuration. It leaves the original files, the backup, the encrypted
-credential and new oo7 data intact. Secrets added **after migration** exist in
-oo7's V1 keyrings and are not automatically merged back into GNOME Keyring.
+Once activation succeeds, oo7 is the selected provider. There is no command to
+switch back to GNOME Keyring. GNOME's retained daemon supplies PKCS#11 only.
+The installer still restores the pre-activation provider configuration if the
+initial activation fails, rather than leaving a half-installed provider.
+Existing migration backups and original keyrings are left untouched; they are
+not backups of secrets added to oo7 after migration.
 
 After changing the keyring password, refresh the sealed credential and restart
 oo7 when convenient:
@@ -118,8 +124,35 @@ desktop-keyring status
 
 Provisioning verifies the current V1 login keyring if present, otherwise the
 original GNOME login keyring. It never writes an unencrypted keyring or a
-plaintext password file. If TPM unsealing fails, rollback provides the old
-password-based provider; it does not require a working TPM credential.
+plaintext password file. If TPM unsealing fails, retain oo7 and reprovision the
+credential using the current keyring password. Resolve the TPM or boot-policy
+problem first; provisioning requires working host+TPM2 protection.
+
+### Backing up current oo7 data
+
+The data to protect is the complete `$XDG_DATA_HOME/keyrings/v1/` directory,
+including every collection and its metadata, not just `login.keyring`. The
+default data directory is `~/.local/share`. The pre-migration backup does not
+contain subsequent oo7 changes.
+
+A backup needs:
+
+- A consistent copy taken while oo7 cannot write. Logging out alone does not
+  establish this if the user manager or Secret Service clients remain active.
+  An offline backup is simplest; an automated helper must prevent service
+  reactivation while copying and restore normal service availability afterward.
+- Versioned storage off this computer. A second directory on the same disk
+  does not protect against disk loss. Use encrypted backup storage with private
+  permissions even though the keyring files are already encrypted.
+- The password for each collection, retained independently of the computer.
+  The TPM-bound credential is not a portable replacement for that password.
+- A restore test using a disposable profile and private D-Bus session, with
+  the password rather than the original machine's TPM credential.
+
+Restore must preserve the existing destination before replacing anything and
+must run with the destination daemon stopped. A different machine/account
+needs its own TPM credential provisioned after the restored keyring is verified.
+No scheduled backup or restore helper is installed by the current tooling.
 
 Implementation references: [oo7 0.7.3 server documentation](https://github.com/linux-credentials/oo7/blob/0.7.3/server/README.md),
 [service unit](https://github.com/linux-credentials/oo7/blob/0.7.3/server/data/oo7-daemon.service.in),
