@@ -5,6 +5,9 @@ QtObject {
     id: root
     required property var password
     property var fingerprint: null
+    property bool fingerprintAllowed: true
+    property string fingerprintPolicyMessage: ""
+    property string fingerprintFeedback: ""
     required property string user
     property bool secure: false
     property bool unlocked: false
@@ -14,10 +17,18 @@ QtObject {
     readonly property bool responseRequired: secure && !unlocked && !submitted && password.active && password.responseRequired
     readonly property bool responseVisible: password.responseVisible
     readonly property bool busy: password.active
-    readonly property bool fingerprintAvailable: secure && !unlocked && fingerprint !== null
+    readonly property bool fingerprintAvailable: canFingerprint()
+    readonly property string fingerprintMessage: fingerprintAvailable
+        ? (fingerprintFeedback || "Fingerprint ready — touch the sensor or enter your password")
+        : fingerprintPolicyMessage
     signal clearResponse()
     signal authenticated()
     onSecureChanged: if (secure && !unlocked) { begin(); startFingerprint(); }
+    onFingerprintAllowedChanged: {
+        fingerprintRetry.stop(); fingerprintFeedback = "";
+        if (fingerprintAllowed) startFingerprint();
+        else if (fingerprint) fingerprint.abort();
+    }
     function begin() {
         if (!secure || unlocked || password.active) return;
         error = false; message = ""; submitted = false; clearResponse();
@@ -49,10 +60,26 @@ QtObject {
     property Connections fingerprintEvents: Connections {
         target: root.fingerprint
         function onCompleted(result) {
+            if (!root.canFingerprint()) return;
             if (result === PamResult.Success) root.finish(result);
-            else if (root.secure && !root.unlocked) fingerprintRetry.restart();
+            else root.retryFingerprint();
         }
+        function onPamMessage() { root.fingerprintFeedback = root.fingerprint.message; }
+        function onError(error) { root.retryFingerprint(); }
     }
     property Timer fingerprintRetry: Timer { interval: 2000; onTriggered: root.startFingerprint() }
-    function startFingerprint() { if (secure && !unlocked && fingerprint && !fingerprint.active) fingerprint.start(); }
+    // Evaluate authoritative properties directly inside transition handlers;
+    // a derived QML binding may still hold its previous value in that handler.
+    function canFingerprint() { return secure && !unlocked && fingerprintAllowed && fingerprint !== null; }
+    function retryFingerprint() {
+        if (!canFingerprint()) return;
+        fingerprintFeedback = "Fingerprint unavailable; retrying — password is still available";
+        fingerprintRetry.restart();
+    }
+    function startFingerprint() {
+        if (canFingerprint() && !fingerprint.active) {
+            fingerprintFeedback = "Starting fingerprint reader…";
+            if (!fingerprint.start()) retryFingerprint();
+        }
+    }
 }

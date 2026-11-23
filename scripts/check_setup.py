@@ -1,6 +1,7 @@
 """Read-only comparison of installed configuration with this working checkout."""
 import argparse
 import importlib.util
+import hashlib
 import json
 from collections import Counter
 import os
@@ -318,6 +319,31 @@ class Audit:
                 self.report('UNKNOWN', str(target), 'cannot inspect checkout')
         self.report('UNKNOWN', item, 'upstream version and delegated installation are not pinned/audited; no network access')
 
+    def keyring(self):
+        selector = self.home / '.config/dotfiles/keyring'
+        if not selector.is_file() or selector.read_text().strip() != 'oo7':
+            self.report('UNKNOWN', 'keyring runtime', 'tooling installed; run scripts/setup-oo7.sh locally to provision oo7')
+            return
+        config = self.home / '.config'
+        data = Path(os.environ.get('XDG_DATA_HOME') or self.home / '.local/share')
+        templates = self.root / 'keyring/.local/share/atelier-keyring'
+        for name, target in {
+            'org.freedesktop.secrets.service': data / 'dbus-1/services/org.freedesktop.secrets.service',
+            'oo7-credentials.conf': config / 'systemd/user/oo7-daemon.service.d/20-atelier-credentials.conf',
+            'gnome-pkcs11.conf': config / 'systemd/user/gnome-keyring-daemon.service.d/20-atelier-pkcs11.conf',
+            'gnome-keyring-secrets.desktop': config / 'autostart/gnome-keyring-secrets.desktop',
+        }.items():
+            self.file(templates / name, target, mode=0o600)
+        credential = config / 'credstore.encrypted/oo7.keyring-encryption-password'
+        try:
+            metadata = credential.stat()
+            valid = (not credential.is_symlink() and stat.S_ISREG(metadata.st_mode)
+                     and metadata.st_mode & 0o7777 == 0o600 and metadata.st_uid == os.getuid())
+            self.report('OK' if valid else 'DRIFT', str(credential), '' if valid else 'requires owned regular file, mode 600')
+        except FileNotFoundError:
+            self.report('DRIFT', str(credential), 'provision locally; never sync the credential')
+        self.report('UNKNOWN', 'keyring runtime', 'run desktop-keyring status and test fresh login/resume; audit never reads secrets')
+
     def access(self):
         for directory in ('/etc/atelier', '/etc/atelier/access', '/usr/share/atelier', '/usr/share/atelier/access', '/usr/share/atelier/access/avatars'):
             path = Path(directory)
@@ -329,12 +355,29 @@ class Audit:
                 self.report('DRIFT', directory, 'not staged')
         source = self.root / 'quickshell/.config/quickshell/atelier'
         names = {line.split()[-1] for line in (self.root / 'auth-setup/qmldir').read_text().splitlines() if line.strip()}
-        names |= {'lock.qml', 'greeter.qml', 'access_identity.py'}
+        names |= {'lock.qml', 'greeter.qml', 'access_identity.py',
+                  'fingerprint_monitor.py', 'fingerprint_state.py', 'fingerprint_environment.py',
+                  'greetd_transport.py', 'greetd_protocol.py'}
         for name in sorted(names):
             self.file(source / name, Path('/etc/atelier/access') / name, mode=0o644, uid=0, gid=0)
         self.file(self.root / 'auth-setup/qmldir', Path('/etc/atelier/access/qmldir'), mode=0o644, uid=0, gid=0)
-        for name in ('atelier-lock', 'atelier-fingerprint'):
+        for name in ('atelier-lock', 'atelier-fingerprint', 'atelier-login'):
             self.file(self.root / 'auth-setup/pam' / name, Path('/etc/pam.d') / name, mode=0o644, uid=0, gid=0)
+        self.file(self.root / 'auth-setup/pam-method/pam_atelier_method.c', Path('/etc/atelier/access/pam_atelier_method.c'), mode=0o644, uid=0, gid=0)
+        self.file(self.root / 'scripts/build_auth_method.py', Path('/etc/atelier/access/auth_method_build.py'), mode=0o644, uid=0, gid=0)
+        pam = Path('/etc/pam.d/greetd')
+        if pam.is_file() and any(line.split() == ['auth', 'substack', 'atelier-login'] for line in pam.read_text().splitlines()):
+            self.file(self.root / 'auth-setup/pam/greetd', pam, mode=0o644, uid=0, gid=0)
+            module = Path('/usr/lib/security/pam_atelier_method.so')
+            stamp = Path('/etc/atelier/access/pam-method.sha256')
+            try:
+                metadata = module.stat()
+                matches = (not module.is_symlink() and not stamp.is_symlink() and metadata.st_uid == 0
+                           and metadata.st_mode & 0o7777 == 0o644
+                           and hashlib.sha256(module.read_bytes()).hexdigest() == stamp.read_text().strip())
+                self.report('OK' if matches else 'DRIFT', str(module), '' if matches else 'restage the selector module')
+            except FileNotFoundError:
+                self.report('DRIFT', str(module), 'restage the selector module')
         self.file(self.root / 'backgrounds/.config/backgrounds/tolkien/balrog.jpg',
                   Path('/usr/share/atelier/access/background.jpg'), mode=0o644, uid=0, gid=0)
         self.file(self.root / 'greetd-setup/greeter-avatar.png',
@@ -365,7 +408,7 @@ class Audit:
             self.stow('hyprland-common')
         elif item == 'greetd' and Path('/etc/atelier/access/greeter-selected').is_file():
             self.access()
-        elif item in ['tty', 'greetd', 'upall', 'nautilus', 'theme', 'zed', 'access', 'casting']:
+        elif item in ['tty', 'greetd', 'upall', 'nautilus', 'theme', 'zed', 'access', 'casting', 'keyring']:
             getattr(self, item)()
         elif item == 'pam':
             self.file(self.root / 'pam-setup/etc/pam.d/hyprlock', Path('/etc/pam.d/hyprlock'), mode=0o644, uid=0, gid=0)

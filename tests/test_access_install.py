@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import pwd
 import subprocess
+import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -19,7 +20,9 @@ def load(name, path):
     return module
 
 
+sys.path.insert(0, str(ROOT / 'scripts'))
 installer = load('access_installer', 'scripts/install_access.py')
+sys.path.pop(0)
 identity = load('access_identity', 'quickshell/.config/quickshell/atelier/access_identity.py')
 
 
@@ -110,6 +113,31 @@ class AccessInstallTest(unittest.TestCase):
             (root / 'etc/atelier').symlink_to(root / 'user-owned')
             with self.assertRaisesRegex(ValueError, 'symlink'):
                 installer.Installer(root).directory('/etc/atelier/access')
+
+    def test_method_selection_requires_explicit_enable_and_preserves_recovery_policy(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(installer, 'verify_config'), \
+                patch.object(installer, 'build_auth_method', return_value=b'compiled-selector') as build:
+            root = Path(directory)
+            stage = installer.Installer(root, ROOT)
+            path = root / 'etc/pam.d/greetd'
+            stage.write('/etc/pam.d/greetd', (ROOT / 'auth-setup/pam/greetd').read_bytes().replace(
+                b'substack     atelier-login', b'include      system-local-login'))
+            original = path.read_bytes()
+            stage.install(1000)
+            build.assert_not_called()
+            self.assertEqual(path.read_bytes(), original)
+            stage.write('/etc/atelier/access/greeter-selected', b'atelier\n')
+            stage.write('/etc/greetd/config.toml', ('[default_session]\ncommand = "' + installer.NEW + '"\nuser = "greeter"\n').encode())
+            stage.install(1000, login_methods=True)
+            stage.enable_login_methods()
+            self.assertEqual(path.read_bytes(), (ROOT / 'auth-setup/pam/greetd').read_bytes())
+            self.assertEqual((root / 'etc/pam.d/greetd.before-atelier-methods').read_bytes(), original)
+            stage.install(1000)  # Subsequent routine staging rebuilds the selected module.
+            self.assertEqual(build.call_count, 2)
+            path.write_text('# foreign policy\nauth required pam_deny.so\n')
+            with self.assertRaisesRegex(ValueError, 'unfamiliar'):
+                stage.enable_login_methods()
+            self.assertIn('pam_deny', path.read_text())
 
     def test_lock_identity_uses_real_uid_not_environment_username(self):
         with patch.dict(os.environ, USER='not-the-current-account'):

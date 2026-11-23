@@ -32,11 +32,13 @@ ANCHORS = {
     'opencode': ('opencode/.config/opencode',),
     'theme': ('desktop-theme/.themes/Atelier/gtk-3.0/gtk.css', 'gtk-4.0/.config/gtk-4.0/gtk.css'),
     'casting': ('casting/.config/dotfiles/casting',),
+    'keyring': ('keyring/.local/bin/desktop-keyring',),
 }
 SCRIPTS = {
     'hyprland': ('scripts/install_cursor.py',),
     'theme': ('theme/', 'scripts/apply_theme.py', 'scripts/render_theme.py', 'scripts/install_cursor.py', 'setup-theme.sh'),
     'zed': ('scripts/setup_zed.py', 'setup-zed.sh', 'scripts/apply_theme.py'),
+    'keyring': ('scripts/setup-oo7.sh',),
 }
 MANUAL = ('setup-nautilus.sh', 'setup-tty.sh', 'setup-cloudflare-skills.sh',
           'setup-mattpocock-skills.sh', 'install-', 'pam-setup/', 'upall-setup/',
@@ -167,8 +169,14 @@ class Updater:
             'greetd-setup/greeter-avatar.png': f'/usr/share/atelier/access/avatars/{os.getuid()}.png',
             'auth-setup/pam/atelier-lock': '/etc/pam.d/atelier-lock',
             'auth-setup/pam/atelier-fingerprint': '/etc/pam.d/atelier-fingerprint',
+            'auth-setup/pam/atelier-login': '/etc/pam.d/atelier-login',
+            'auth-setup/pam-method/pam_atelier_method.c': '/etc/atelier/access/pam_atelier_method.c',
+            'scripts/build_auth_method.py': '/etc/atelier/access/auth_method_build.py',
             'greetd-setup/etc/greetd/hyprland.lua': '/etc/greetd/atelier-hyprland.lua',
         })
+        pam = self.system / 'etc/pam.d/greetd'
+        if pam.is_file() and any(line.split() == ['auth', 'substack', 'atelier-login'] for line in pam.read_text().splitlines()):
+            files['auth-setup/pam/greetd'] = '/etc/pam.d/greetd'
         return files
 
     def access_status(self, baseline=None):
@@ -187,6 +195,13 @@ class Updater:
                     if target.is_symlink() or target.read_bytes() != previous:
                         raise UpdateError(f'Local/unknown PAM policy differs: {destination}. Review it manually; routine updates will not overwrite it.')
                 differences.append(destination)
+        pam = self.system / 'etc/pam.d/greetd'
+        if pam.is_file() and any(line.split() == ['auth', 'substack', 'atelier-login'] for line in pam.read_text().splitlines()):
+            module = self.system / 'usr/lib/security/pam_atelier_method.so'
+            stamp = self.system / 'etc/atelier/access/pam-method.sha256'
+            if (module.is_symlink() or not module.is_file() or not stamp.is_file()
+                    or hashlib.sha256(module.read_bytes()).hexdigest() != stamp.read_text().strip()):
+                differences.append('/usr/lib/security/pam_atelier_method.so')
         return True, differences
 
     def missing_packages(self, items, entries):
@@ -261,7 +276,7 @@ class Updater:
 
             def report(self, state, label, detail=''):
                 super().report(state, label, detail)
-                if state == 'UNKNOWN' and label not in ('runtime appearance', 'authentication runtime', 'Fish plugins', 'casting runtime'):
+                if state == 'UNKNOWN' and label not in ('runtime appearance', 'authentication runtime', 'Fish plugins', 'casting runtime', 'keyring runtime'):
                     self.blocking_unknown.append(label)
 
         audit = UpdateAudit(root=self.root, home=self.home, machine=plan['machine'])
@@ -295,6 +310,8 @@ class Updater:
             self.run([sys.executable, '-B', 'scripts/install_cursor.py'])
         if 'zed' in plan['selected']:
             self.run([sys.executable, '-B', 'scripts/setup_zed.py', '--no-runtime'])
+        if 'keyring' in plan['selected']:
+            self.run([self.home / '.local/bin/desktop-keyring', 'refresh'])
         if plan['access']:
             if not confirm('Refresh the listed root-owned UI/PAM/assets with sudo? Existing differing copies are backed up. Selection is unchanged.'):
                 raise UpdateError('Authentication refresh deferred. No success revision recorded; rerun when ready.')

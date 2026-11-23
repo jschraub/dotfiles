@@ -44,10 +44,15 @@ def main():
         if subprocess.run(['pgrep', '-u', str(os.getuid()), '-x', 'hyprlock'], capture_output=True).returncode == 0:
             return 1 if sys.argv[1:] == ['--test'] else 0
         config_home = Path(os.environ.get('XDG_CONFIG_HOME') or Path.home() / '.config')
-        helper = config_home / 'hypr/scripts/lock.sh'
-        policy = subprocess.run([str(helper), '--check'], capture_output=True, text=True, timeout=4)
-        # The wizard's real password test must not succeed via a fingerprint.
-        fingerprint = sys.argv[1:] != ['--test'] and policy.returncode == 0 and 'fingerprint=true' in policy.stdout
+        # Updated native locks monitor reader/lid/sleep changes themselves. An
+        # unavailable reader at lock time must not disable it for the whole lock.
+        monitored = CONFIG.with_name('fingerprint_monitor.py').is_file()
+        if monitored:
+            fingerprint = sys.argv[1:] != ['--test']
+        else:
+            helper = config_home / 'hypr/scripts/lock.sh'
+            policy = subprocess.run([str(helper), '--check'], capture_output=True, text=True, timeout=4)
+            fingerprint = sys.argv[1:] != ['--test'] and policy.returncode == 0 and 'fingerprint=true' in policy.stdout
         if fingerprint:
             trusted(Path('/etc/pam.d/atelier-fingerprint'))
         environment = dict(os.environ, ATELIER_FINGERPRINT='1' if fingerprint else '0')

@@ -120,6 +120,10 @@ NetworkManager/Proton, BlueZ, PipeWire/WirePlumber, screenshots, portals, Miraca
 greetd/ReGreet, terminals and file manager remain in place. No root-owned
 authentication, greeter, idle/suspend or networking policies are replaced.
 
+An explicit [oo7/TPM migration](keyring.md) can replace GNOME Keyring's Secret
+Service role while retaining its PKCS#11 component. Ordinary desktop setup does
+not select or provision a new keyring provider.
+
 Quickshell renders each machine's configured wallpaper only after decoding the
 image; Hyprpaper and its watcher are removed. See [wallpapers](wallpapers.md).
 Native authentication runs in a separate `auth.qml` process. `desktop-polkit`

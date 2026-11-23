@@ -1,2 +1,5 @@
 __pycache__/
 *.py[cod]
+# Keyrings and TPM-bound credentials belong only to each machine, never Git.
+*.keyring
+**/credstore.encrypted/

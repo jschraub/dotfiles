@@ -7,13 +7,24 @@ ShellRoot {
     AccessIdentity {
         id: accountInfo; mode: "greeter"
         onReadyChanged: {
-            if (ready && users.length && Greetd.available) {
+            if (ready && users.length) {
                 loginController.selectUser(users[0].user);
                 if (users.length === 1) loginController.begin();
             }
         }
     }
-    GreeterController { id: loginController; service: Greetd }
+    GreetdTransport { id: signInService }
+    GreeterController { id: loginController; service: signInService }
+    FingerprintPolicy {
+        id: fingerprintPolicy
+        active: true
+        greeter: true
+        function update() { loginController.updateHardware(present, allowed, ready, message); }
+        onPresentChanged: update()
+        onAllowedChanged: update()
+        onReadyChanged: update()
+        onMessageChanged: update()
+    }
     Variants {
         model: Quickshell.screens
         PanelWindow {

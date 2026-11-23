@@ -82,6 +82,27 @@ ColumnLayout {
             }
         }
     }
+    Controls.Switch {
+        id: methodSwitch
+        objectName: "access-method-toggle"
+        Layout.alignment: Qt.AlignHCenter
+        visible: root.login && !!root.controller.selectionSupported && !!root.controller.readerPresent
+        text: "Use fingerprint"
+        font.family: Theme.font
+        font.pixelSize: 13
+        focusPolicy: Qt.StrongFocus
+        checked: root.login && root.controller.method === "fingerprint"
+        enabled: !root.preview && !!root.controller.canSwitchMethod && !!root.controller.fingerprintAllowed
+        onToggled: root.controller.chooseMethod(checked ? "fingerprint" : "password")
+        palette.text: Theme.text
+        palette.highlight: Theme.accent
+    }
+    Label {
+        Layout.fillWidth: true; wrapMode: Text.WordWrap
+        visible: root.login && !!root.controller.readerPresent && !root.controller.fingerprintAllowed
+        text: root.login ? (root.controller.fingerprintPolicyMessage || "") : ""
+        color: Theme.muted; font.pixelSize: 11
+    }
     Label {
         objectName: "access-message"
         Layout.fillWidth: true; wrapMode: Text.WordWrap
@@ -94,6 +115,7 @@ ColumnLayout {
         id: secret
         objectName: "access-response"
         Layout.fillWidth: true
+        visible: !root.login || !root.controller.selectionSupported || root.controller.method === "password"
         enabled: root.controller.responseRequired && !root.preview
         echoMode: root.controller.responseVisible ? TextInput.Normal : TextInput.Password
         inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
@@ -104,19 +126,23 @@ ColumnLayout {
     }
     Label {
         Layout.fillWidth: true
-        visible: !root.login && !!root.controller.fingerprintAvailable
-        text: "Fingerprint enabled — touch the sensor or enter your password"
+        visible: !root.login && !!root.controller.fingerprintMessage
+        text: root.login ? "" : (root.controller.fingerprintMessage || "")
         font.pixelSize: 11; color: Theme.muted; wrapMode: Text.WordWrap
     }
     ActionButton {
         id: submitButton
         objectName: "access-submit"
         Layout.fillWidth: true
-        text: root.preview || root.controller.responseRequired ? (root.login ? "Sign in" : "Unlock")
+        text: root.login && root.controller.canRestartFingerprint ? "Restart fingerprint"
+            : root.preview || root.controller.responseRequired ? (root.login ? "Sign in" : "Unlock")
             : root.controller.busy ? "Authenticating…" : root.login && !root.controller.error ? "Continue" : "Try again"
         selected: true
-        enabled: !root.preview && (!root.login || !!root.account) && (root.controller.responseRequired || !root.controller.busy)
-        onClicked: root.submit()
+        enabled: !root.preview && (!root.login || !!root.account) && (root.controller.responseRequired || !root.controller.busy || !!root.controller.canRestartFingerprint)
+        onClicked: {
+            if (root.login && root.controller.canRestartFingerprint) root.controller.restartFingerprint();
+            else root.submit();
+        }
     }
     Label {
         Layout.fillWidth: true; visible: root.preview

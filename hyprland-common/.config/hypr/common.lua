@@ -48,7 +48,7 @@ local lidDisplay = "~/.config/hypr/scripts/lid-display.sh"
 hl.on("hyprland.start", function()
     hl.exec_cmd("~/.local/bin/desktop-polkit start")
     hl.exec_cmd("hyprctl setcursor Bibata-Modern-Amber 24")
-    hl.exec_cmd("gnome-keyring-daemon --start --components=secrets,pkcs11")
+    hl.exec_cmd('if [ -x "$HOME/.local/bin/desktop-keyring" ]; then "$HOME/.local/bin/desktop-keyring" start; else gnome-keyring-daemon --start --components=secrets,pkcs11; fi')
     -- Keep idle/sleep evidence across reboots. Without systemd-cat, programs
     -- spawned here inherit /dev/null and their diagnostics are lost.
     hl.exec_cmd("systemd-cat --identifier=hypridle --level-prefix=false hypridle")

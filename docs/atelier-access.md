@@ -61,6 +61,10 @@ sudo python3 -B scripts/install_access.py --account USERNAME
 The greeter never needs permission to read that user's home. No AccountsService
 daemon or fingerprint reader is required for password-only use.
 
+For fingerprint sign-in without a second keyring-password prompt, use the
+separate [oo7/TPM keyring migration](keyring.md). Its credential is provisioned
+locally on each machine and works with password-only machines too.
+
 ## Security boundaries
 
 API references: [Wayland session lock](https://quickshell.org/docs/v0.3.0/types/Quickshell.Wayland/WlSessionLock/),
@@ -78,13 +82,24 @@ API references: [Wayland session lock](https://quickshell.org/docs/v0.3.0/types/
   pam_fprintd, never the password conversation. The existing auto/on/off policy
   in `~/.config/dotfiles/hyprlock-fingerprint` remains effective; absent hardware
   means password-only. Enrollment and login/sudo fingerprint policy are unchanged.
-- **Greeter:** native greetd conversation; only its successful ready-to-launch
+- **Fingerprint lifecycle:** a separate, root-installed monitor watches logind's
+  sleep notifications and the actual kernel lid state. It disables scanning
+  while the lid is closed, sleep is in progress, or the reader is unavailable.
+  It holds a delay inhibitor long enough to request fingerprint-PAM cancellation
+  before sleep completes, then reprobes after a short wake-up delay. The password
+  conversation and typed text stay intact across these changes. Reader discovery
+  and PAM failures are retried, and fingerprint feedback is shown separately.
+  A stale success after cancellation cannot unlock the session. The monitor
+  requires `python-gobject`; it does not require fprintd on readerless machines.
+- **Greeter:** a dedicated greetd protocol adapter; only its successful ready-to-launch
   state for the selected user launches fixed `/usr/bin/start-hyprland` argv.
   No user-entered text is interpreted as a session command.
-- **Credentials:** direct native conversation, input masked unless the provider
+- **Credentials:** input masked unless the provider
   explicitly requests visible input, predictive input disabled, response cleared
-  before submission and on identity/prompt/result changes. No credential backend,
-  stdin protocol, command-line argument, log statement or response IPC exists.
+  before submission and on identity/prompt/result changes. Locker responses use
+  native PAM. Greeter responses travel through a private parent/child stdin pipe
+  directly to the inherited greetd Unix socket; the adapter never echoes them.
+  There is no password-response IPC, argument, environment variable or log entry.
 - **Files:** `/etc/atelier/access` and its parents are root-owned; runtime account
   metadata does not control code. Root-owned static files live outside Stow.
   The greeter compositor retains the existing GPU, HDR/SDR, refresh and lid rules;
@@ -131,3 +146,87 @@ Tests use fake PAM/greetd objects and compile (but do not instantiate) the real
 entrypoints. They do not lock the live session or exercise real credentials.
 Restage root-owned UI after changing shared styles with the installer above;
 once selected, `setup.sh greetd` updates the native UI without restoring ReGreet.
+
+For an already-selected native locker, deploy lifecycle updates with:
+
+```sh
+./setup.sh access
+sudo python3 -B scripts/install_access.py --account "$(id -un)"
+```
+
+The installer updates the bundle without locking, logging out or restarting
+greetd. Test the next real lock, docked/lid-closed use, suspend/resume and the
+readerless host separately. `desktop-keyring status` should remain successful
+after unlocking.
+
+### Sign-in method toggle and fingerprint restart
+
+Enable the reader-aware toggle on an already-selected Atelier greeter:
+
+```sh
+./setup.sh access
+sudo python3 -B scripts/install_access.py --account "$(id -un)" --enable-login-methods
+```
+
+This explicit step backs up `/etc/pam.d/greetd` to
+`/etc/pam.d/greetd.before-atelier-methods`, and changes only its known authentication
+route to the managed `atelier-login` substack. Unfamiliar local greetd PAM policies
+are rejected. Account/session includes stay intact. It does not restart greetd or
+log out the current desktop.
+
+- **Reader available, lid open:** defaults to fingerprint. The amber-themed
+  **Use fingerprint** toggle switches to password immediately, cancelling the
+  current attempt first.
+- **Scan expires or fails:** the screen stays in fingerprint mode and displays
+  **Restart fingerprint**. Clicking starts a fresh attempt; it does not silently
+  switch to password. A scan allows three mismatches and a 15-second timeout.
+- **No reader/service:** password-only, with no fingerprint toggle. No fprintd
+  package is required on the readerless host.
+- **Lid closed or reader unavailable:** password-only until the reader is usable.
+  A present reader's toggle stays visible but disabled while docked. Opening the
+  lid does not interrupt password entry; the toggle becomes available again.
+
+A small, locally compiled PAM module asks the greeter which branch to use. It
+handles only the literal public values `fingerprint` and `password`, never a
+password/auth token. It independently checks the kernel lid state. Password skips
+the fingerprint module entirely; fingerprint failure ends that attempt rather
+than falling through to password. Stock pam_unix/pam_systemd_home/pam_fprintd do
+the authentication, and existing faillock/account/session policy stays in effect.
+The module is installed root-owned under `/usr/lib/security`; no binary is stored
+in Git. Setup declares gcc and PAM as build dependencies.
+
+The greeter transport matches each server reply to its request and discards
+cancelled-attempt replies. It waits for the **actual cancel acknowledgement**
+before creating the replacement. An installed Quickshell 0.3.2 cancellation bug
+was reproduced with the private socket test, so this path does not depend on
+the native singleton's cancellation handling or a timing delay. Only a successful
+authentication reply can reach ready-to-launch; a cancel acknowledgement cannot.
+
+Once enabled, routine root-bundle refreshes rebuild the selector when updating
+its sources. Audits check its root-owned checksum and the managed PAM policy.
+Repeat the explicit enabling command on the other machine after syncing the repo.
+
+Restore the previous routing from a TTY if needed:
+
+```sh
+sudo cp -a /etc/pam.d/greetd.before-atelier-methods /etc/pam.d/greetd
+```
+
+The greeter remains compatible with that original stack; its method controls
+appear only after the selector handshake. No experimental concurrent PAM module
+is used. The lock screen continues to offer its independent password/fingerprint
+conversations; sign-in uses one selected method at a time.
+
+Verification:
+
+```sh
+python -B -m unittest discover -s tests -p test_login_method_pam.py -v
+ATELIER_GUI_TESTS=1 python -B -m unittest discover -s tests -p test_atelier_access.py -v
+ATELIER_GUI_TESTS=1 python -B -m unittest discover -s tests -p test_greetd_methods_protocol.py -v
+```
+
+The first test uses actual libpam with a private PAM configuration and stock
+permit/deny substitutes, including a missing fingerprint module. The others use
+fake providers and a private socket; they never submit real credentials or launch
+a real session. Hardware verification still requires a fresh sign-in, scan
+expiry/restart, password switching, lid-closed docking and the readerless machine.

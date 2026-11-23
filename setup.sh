@@ -12,6 +12,7 @@
 #   ./setup.sh                 # interactive menu
 #   ./setup.sh all             # defaults (legacy desktop and optional hardware excluded)
 #   ./setup.sh hyprland fish   # named items, no prompt
+#   ./scripts/setup-oo7.sh     # optional per-machine keyring/TPM migration
 #   ./setup.sh --list          # print items and exit
 #   ./setup.sh --dry-run ...   # show the plan without changing anything
 #   ./check-setup.sh ...       # read-only comparison with the current checkout
@@ -38,7 +39,7 @@ STOW_NO_FOLDING=0
 #   STOW[id]    space-separated stow package dirs to link
 #   HANDLER[id] optional function name overriding the generic install+stow
 
-ORDER=(hyprland quickshell access ghostty fish nautilus gaming backgrounds avatars zed opencode theme casting cloudflare-skills mattpocock-skills matrix greetd tty)
+ORDER=(hyprland quickshell access keyring ghostty fish nautilus gaming backgrounds avatars zed opencode theme casting cloudflare-skills mattpocock-skills matrix greetd tty)
 
 declare -A LABEL PKGS STOW HANDLER OPTIONAL
 
@@ -53,9 +54,15 @@ HANDLER[quickshell]=handle_quickshell
 
 LABEL[access]="Atelier login and lock screens (stage first; explicit tested activation)"
 OPTIONAL[access]=1
-PKGS[access]="quickshell>=0.3.2 greetd hyprland python inter-font ttf-cascadia-code-nerd"
+PKGS[access]="quickshell>=0.3.2 greetd hyprland python python-gobject gcc pam inter-font ttf-cascadia-code-nerd"
 STOW[access]="hyprland-common quickshell"
 HANDLER[access]=handle_access
+
+LABEL[keyring]="oo7 Secret Service + machine-local TPM unlock (explicit migration)"
+OPTIONAL[keyring]=1
+PKGS[keyring]="oo7>=0.7.3 systemd>=258 tpm2-tss dbus python gnome-keyring libsecret"
+STOW[keyring]="keyring"
+HANDLER[keyring]=handle_keyring
 
 LABEL[ghostty]="Ghostty terminal"
 PKGS[ghostty]="ghostty"
@@ -331,6 +338,12 @@ handle_access() {
     safe_stow hyprland-common || return
     safe_stow quickshell || return
     info "Preview, install and test before selecting the replacement: ./scripts/setup-atelier-access.sh"
+}
+handle_keyring() {
+    pkg_install ${PKGS[keyring]} || return
+    safe_stow keyring || return
+    info "Provision and switch this account locally: ./scripts/setup-oo7.sh"
+    info "Routine updates never collect passwords or migrate keyrings."
 }
 handle_tty()               { delegate setup-tty.sh; }
 

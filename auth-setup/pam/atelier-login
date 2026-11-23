@@ -1,0 +1,12 @@
+#%PAM-1.0
+# The selector only chooses a branch. It never grants authentication itself.
+auth      required                 pam_shells.so
+auth      required                 pam_faillock.so preauth
+auth      [success=ignore ignore=1 default=die] pam_atelier_method.so
+-auth     [success=3 default=die]    pam_fprintd.so max_tries=3 timeout=15
+-auth     [success=2 default=ignore] pam_systemd_home.so
+auth      [success=1 default=bad]    pam_unix.so try_first_pass nullok
+auth      [default=die]             pam_faillock.so authfail
+auth      optional                 pam_permit.so
+auth      required                 pam_env.so
+auth      required                 pam_faillock.so authsucc

@@ -10,10 +10,16 @@ ShellRoot {
     // avatar metadata never chooses an authentication identity or blocks unlock.
     PamContext { id: passwordPam; config: "atelier-lock" }
     PamContext { id: fingerprintPam; config: "atelier-fingerprint" }
+    FingerprintPolicy {
+        id: fingerprintPolicy
+        active: sessionLock.secure && !lockController.unlocked && Quickshell.env("ATELIER_FINGERPRINT") !== "0"
+    }
     LockController {
         id: lockController
         password: passwordPam
-        fingerprint: Quickshell.env("ATELIER_FINGERPRINT") === "1" ? fingerprintPam : null
+        fingerprint: fingerprintPam
+        fingerprintAllowed: fingerprintPolicy.allowed
+        fingerprintPolicyMessage: fingerprintPolicy.message
         user: accountInfo.users.length ? accountInfo.users[0].user : ""
         secure: sessionLock.secure
         onAuthenticated: {

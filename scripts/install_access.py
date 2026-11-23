@@ -2,6 +2,7 @@
 """Stage root-owned Atelier authentication UI; activate greetd only when explicit."""
 import argparse
 import fcntl
+import hashlib
 from datetime import datetime
 import os
 from pathlib import Path
@@ -12,10 +13,14 @@ import subprocess
 import tempfile
 import tomllib
 
+from build_auth_method import build as build_auth_method
+
 SOURCE = Path(__file__).resolve().parents[1]
 FILES = ('Theme.qml', 'Label.qml', 'ActionButton.qml', 'SearchField.qml',
          'AccessIdentity.qml', 'AccessCard.qml', 'AccessScene.qml', 'LockController.qml',
-         'GreeterController.qml', 'access_identity.py', 'lock.qml', 'greeter.qml')
+          'GreeterController.qml', 'FingerprintPolicy.qml', 'access_identity.py',
+          'fingerprint_monitor.py', 'fingerprint_state.py', 'fingerprint_environment.py',
+          'GreetdTransport.qml', 'greetd_transport.py', 'greetd_protocol.py', 'lock.qml', 'greeter.qml')
 OLD = 'dbus-run-session start-hyprland -- -c /etc/greetd/hyprland.lua'
 NEW = 'dbus-run-session start-hyprland -- -c /etc/greetd/atelier-hyprland.lua'
 
@@ -121,9 +126,9 @@ class Installer:
         finally:
             Path(temporary).unlink(missing_ok=True)
 
-    def install(self, uid):
+    def install(self, uid, login_methods=False):
         if self.root != Path('/'):
-            return self._install(uid)
+            return self._install(uid, login_methods)
         descriptors = []
         try:
             # The installed bundle is shared. Protect other logged-in accounts'
@@ -138,12 +143,12 @@ class Installer:
                     fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 except BlockingIOError:
                     raise ValueError('Unlock every native-locked session before updating its authentication UI') from None
-            return self._install(uid)
+            return self._install(uid, login_methods)
         finally:
             for descriptor in descriptors:
                 os.close(descriptor)
 
-    def _install(self, uid):
+    def _install(self, uid, login_methods=False):
         if uid < 1000 or uid >= 65534:
             raise ValueError('Choose a regular local account for the preserved avatar')
         self.directory('/etc/atelier')
@@ -154,6 +159,11 @@ class Installer:
         ui = self.source / 'quickshell/.config/quickshell/atelier'
         # Validate the generated greeter config BEFORE writing anything used by greetd.
         generated = greeter_config((self.source / 'greetd-setup/etc/greetd/hyprland.lua').read_text())
+        pam_path = self.destination('/etc/pam.d/greetd')
+        selected = pam_path.is_file() and any(line.split() == ['auth', 'substack', 'atelier-login']
+                                              for line in pam_path.read_text().splitlines())
+        method_source = self.source / 'auth-setup/pam-method/pam_atelier_method.c'
+        module = build_auth_method(method_source) if login_methods or selected else None
         with tempfile.TemporaryDirectory(prefix='atelier-access-') as temporary:
             config = Path(temporary) / 'hyprland.lua'
             config.write_text(generated)
@@ -165,9 +175,39 @@ class Installer:
                    (self.source / 'backgrounds/.config/backgrounds/tolkien/balrog.jpg').read_bytes())
         self.write(f'/usr/share/atelier/access/avatars/{uid}.png',
                    (self.source / 'greetd-setup/greeter-avatar.png').read_bytes())
-        for name in ('atelier-lock', 'atelier-fingerprint'):
+        for name in ('atelier-lock', 'atelier-fingerprint', 'atelier-login'):
             self.write('/etc/pam.d/' + name, (self.source / 'auth-setup/pam' / name).read_bytes())
+        self.write('/etc/atelier/access/pam_atelier_method.c', method_source.read_bytes())
+        self.write('/etc/atelier/access/auth_method_build.py', (self.source / 'scripts/build_auth_method.py').read_bytes())
+        if module is not None:
+            self.write('/usr/lib/security/pam_atelier_method.so', module)
+            self.write('/etc/atelier/access/pam-method.sha256', (hashlib.sha256(module).hexdigest() + '\n').encode())
         self.write('/etc/greetd/atelier-hyprland.lua', generated.encode())
+
+    def enable_login_methods(self):
+        path = self.destination('/etc/pam.d/greetd')
+        original = path.read_text()
+        managed = (self.source / 'auth-setup/pam/greetd').read_text()
+        def statements(text):
+            return [line.split() for line in text.splitlines() if line.strip() and not line.lstrip().startswith('#')]
+        expected = managed.replace('substack     atelier-login', 'include      system-local-login')
+        if statements(original) not in (statements(expected), statements(managed)):
+            raise ValueError('Local greetd PAM policy is unfamiliar; review before enabling method selection')
+        if not self.destination('/usr/lib/security/pam_atelier_method.so').is_file():
+            raise ValueError('Stage the selector module first')
+        if not self.destination('/etc/atelier/access/greeter-selected').is_file():
+            raise ValueError('Select and validate the Atelier greeter before enabling its method selector')
+        config = tomllib.loads(self.destination('/etc/greetd/config.toml').read_text())
+        if (config.get('general', {}).get('service', 'greetd') != 'greetd'
+                or config.get('default_session', {}).get('command') != NEW):
+            raise ValueError('The active greetd configuration must select Atelier and the greetd PAM service')
+        backup = self.destination('/etc/pam.d/greetd.before-atelier-methods')
+        if backup.is_symlink():
+            raise ValueError('Refusing a symlink PAM recovery backup')
+        if not backup.exists():
+            self.write('/etc/pam.d/greetd.before-atelier-methods', original.encode())
+        self.write('/etc/pam.d/greetd', managed.encode())
+        print('Sign-in method selection enabled for the next authentication. greetd was NOT restarted.')
 
     def activate(self):
         required = ('/etc/atelier/access/greeter.qml', '/etc/greetd/atelier-hyprland.lua',
@@ -195,17 +235,25 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--account', help='regular account whose existing avatar is installed')
     parser.add_argument('--activate-greeter', action='store_true')
+    parser.add_argument('--enable-login-methods', action='store_true', help='explicitly enable fingerprint/password routing in the selected Atelier greetd PAM service')
     args = parser.parse_args()
     if os.geteuid() != 0:
         parser.error('Run through sudo; no live authentication or session restart is performed')
     installer = Installer()
     if args.activate_greeter:
+        if args.enable_login_methods:
+            parser.error('Stage and enable login methods separately from initial greeter activation')
         installer.activate()
     else:
         if not args.account:
             parser.error('--account is required for staging')
-        installer.install(pwd.getpwnam(args.account).pw_uid)
-        print('Root-owned UI/PAM/assets staged. Live login and lock selection are unchanged.')
+        installer.install(pwd.getpwnam(args.account).pw_uid, login_methods=args.enable_login_methods)
+        if args.enable_login_methods:
+            installer.enable_login_methods()
+        if args.enable_login_methods:
+            print('Root-owned UI/PAM/assets staged; sign-in method routing enabled. No session was restarted.')
+        else:
+            print('Root-owned UI/PAM/assets staged. Live login and lock selection are unchanged.')
 
 
 if __name__ == '__main__':
