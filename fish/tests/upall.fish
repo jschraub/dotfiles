@@ -2,6 +2,8 @@
 
 set -g test_state (mktemp -d)
 set -gx XDG_STATE_HOME "$test_state/state"
+# Never execute a real machine-local updater while testing upall.
+set -gx XDG_CONFIG_HOME "$test_state/config with spaces"
 source (path resolve (path dirname (status filename))/../.config/fish/functions/upall.fish)
 functions --copy __upall_desktop_update __upall_real_desktop_update
 
@@ -152,6 +154,50 @@ upall >"$test_state/desktop-failure.log" 2>&1
 set -g desktop_status $status
 assert 'test $desktop_status -eq 1' 'desktop updater failure must propagate'
 assert 'grep -q "Updates finished with failures: dotfiles" "$test_state/desktop-failure.log"' 'desktop failure should be named'
+
+# Optional machine-local scripts run independently, without sourcing shell state.
+set -g test_case custom
+upall >"$test_state/custom-absent.log" 2>&1
+set -g custom_absent_status $status
+assert 'test $custom_absent_status -eq 0' 'missing custom updater must be harmless'
+assert 'grep -q "No machine-local custom updater" "$test_state/custom-absent.log"' 'missing custom updater should be explained'
+mkdir -p "$XDG_CONFIG_HOME/upall"
+printf 'set -g custom_leaked yes\nprintf "custom-fixture\\n"\nexit 7\n' >"$XDG_CONFIG_HOME/upall/custom.fish"
+__upall_custom_update >"$test_state/custom-helper.log" 2>&1
+set -g custom_helper_status $status
+assert 'test $custom_helper_status -eq 7' 'custom helper must preserve child exit status'
+assert 'not set -q custom_leaked' 'custom updater must not modify parent Fish state'
+assert 'grep -q custom-fixture "$test_state/custom-helper.log"' 'non-executable custom script at a spaced path should run'
+function arch-update
+    set -g test_custom_refresh_called yes
+end
+upall >"$test_state/custom-failure.log" 2>&1
+set -g custom_failure_status $status
+assert 'test $custom_failure_status -eq 1' 'custom updater failure must fail the summary'
+assert 'grep -q "Updates finished with failures: custom" "$test_state/custom-failure.log"' 'custom failure must be named'
+assert 'test "$test_custom_refresh_called" = yes' 'status refresh must continue after custom failure'
+printf 'printf "custom-success\\n"\n' >"$XDG_CONFIG_HOME/upall/custom.fish"
+set -g test_case aur-query-error
+upall >"$test_state/custom-after-failure.log" 2>&1
+assert 'grep -q custom-success "$test_state/custom-after-failure.log"' 'custom updates are independent of earlier package failures'
+set -g test_case custom
+upall >"$test_state/custom-success.log" 2>&1
+set -g custom_success_status $status
+assert 'test $custom_success_status -eq 0' 'successful custom updater must allow success'
+rm "$XDG_CONFIG_HOME/upall/custom.fish"
+ln -s "$test_state/no-such-file" "$XDG_CONFIG_HOME/upall/custom.fish"
+__upall_custom_update >"$test_state/custom-broken.log" 2>&1
+set -g custom_broken_status $status
+assert 'test $custom_broken_status -eq 1' 'broken configured updater must fail, not be silently skipped'
+rm "$XDG_CONFIG_HOME/upall/custom.fish"
+# Check the default path without consulting the real HOME.
+set -gx HOME "$test_state/home"
+set -e XDG_CONFIG_HOME
+mkdir -p "$HOME/.config/upall"
+printf 'printf "default-custom\\n"\n' >"$HOME/.config/upall/custom.fish"
+__upall_custom_update >"$test_state/custom-default.log" 2>&1
+assert 'grep -q default-custom "$test_state/custom-default.log"' 'default custom path should use HOME/.config'
+set -gx XDG_CONFIG_HOME "$test_state/config with spaces"
 
 # Exercise the actual helper only against a disposable fake updater.
 mkdir -p "$test_state/checkout"

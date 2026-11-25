@@ -21,6 +21,65 @@ builds retain their existing behavior. The checkout is discovered from the linke
 Fish function, or overridden with `DOTFILES_DIR`. The checkout-owned updater is
 **never** run through the passwordless package gate; that policy is unchanged.
 
+## Machine-local custom updaters
+
+After the desktop-update step, `upall` looks for:
+
+```text
+${XDG_CONFIG_HOME:-$HOME/.config}/upall/custom.fish
+```
+
+If absent, the step is skipped. If present, it runs as the current user in a
+separate `fish --no-config` process. It is not sourced into your interactive
+shell, needs no executable bit, and does not run during Fish startup. A broken
+symlink, unreadable script or nonzero exit is reported as `custom` in the final
+failure summary. Custom updates still run after earlier updater failures, and
+Cachy-Update's final refresh still runs if the custom script fails.
+
+This file lives **outside the Stow packages**. Do not add it under
+`fish/.config`: its commands belong to one machine, not every machine that uses
+these dotfiles. Machines without custom software do not need the file. Hooks can
+use a custom `XDG_CONFIG_HOME` even though the desktop updater itself requires
+the standard layout.
+
+Write ordinary Fish commands, check whether their software is installed, and
+track failures so later commands still run:
+
+```fish
+set -l failed 0
+if test -x "$HOME/.local/bin/some-app-updater"
+    "$HOME/.local/bin/some-app-updater"
+    or set failed 1
+end
+# More independent updater commands can follow.
+exit $failed
+```
+
+The hook inherits exported environment variables but does not load Fish config
+or interactive aliases/functions. Use explicit command paths when needed. It
+runs with normal user privileges; do not place untrusted scripts here.
+
+`examples/upall-custom.fish` provides an AC:Unreal example. Copy it into
+the machine-local path only on machines where you want it. It:
+
+- Skips machines without the managed `~/Games/AsheronsCall` installation.
+- Skips a running `ACUnreal` process without killing anything.
+- Runs the existing checksum-verified updater once for both Player and Buffbot.
+- Uses no sudo and leaves client profiles, HD DATs and Steam entries in place.
+
+The example is a direct update command with installation/process guards, not a
+second installer. The AC installer handles root refusal, validation and locks.
+A missing updater checkout, busy installer, race or download/hash/installation
+error is a real failure, not a silent skip. v166+ plugin updates
+remain a separate **Plugin Manager → Update all** operation. The local script
+does not enable optional features, start clients or update plugins.
+
+Run the custom step alone with:
+
+```sh
+fish --no-config ~/.config/upall/custom.fish
+```
+
 ## Safety and scope
 
 - Requires an existing Atelier desktop with its Hyprland and theme configuration
@@ -118,4 +177,5 @@ the real desktop or packages:
 ```sh
 python3 -B -m unittest discover -s tests -p test_desktop_update.py
 fish --no-config fish/tests/upall.fish
+python3 -B -m unittest discover -s tests -p test_custom_updater.py
 ```

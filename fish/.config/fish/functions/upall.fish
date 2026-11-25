@@ -1,4 +1,4 @@
-function upall --description 'Update system packages, Flatpaks, Atelier dotfiles, and Cachy-Update'
+function upall --description 'Update packages, desktop configuration, and optional machine-local software'
     set -l failed
     set -g __upall_deferred
     set -e __upall_last_log
@@ -36,6 +36,10 @@ function upall --description 'Update system packages, Flatpaks, Atelier dotfiles
     end
 
     echo "---"
+    __upall_custom_update
+    or set -a failed custom
+
+    echo "---"
     # paru and Flatpak do not update Cachy-Update's cached state, so refresh it
     # now rather than leaving its notification stale until the daily check.
     if type -q arch-update
@@ -60,6 +64,26 @@ function upall --description 'Update system packages, Flatpaks, Atelier dotfiles
         return 0
     end
     echo "All updates complete!"
+end
+
+function __upall_custom_update --description 'Run an optional machine-local Fish updater in its own process'
+    set -l config_home "$XDG_CONFIG_HOME"
+    if test -z "$config_home"
+        set config_home "$HOME/.config"
+    end
+    set -l updater "$config_home/upall/custom.fish"
+    if not test -e "$updater"; and not test -L "$updater"
+        echo "No machine-local custom updater; skipping."
+        return 0
+    end
+    if not test -f "$updater"; or not test -r "$updater"
+        echo "upall: custom updater is not a readable file: $updater" >&2
+        return 1
+    end
+    echo "Running machine-local custom updates: $updater"
+    # Do not source machine-local code into upall's shell or run it through
+    # the privileged package gate. A script needs no executable bit.
+    command fish --no-config -- "$updater"
 end
 
 function __upall_desktop_update --description 'Run the routine updater from this dotfiles checkout'
