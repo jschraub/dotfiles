@@ -9,6 +9,10 @@ ShellRoot {
     property var state: ({})
     property var apps: []
     property var bindings: []
+    property var bindingContext: ({ tabs: [], tools: [], selected: "desktop" })
+    property int bindingRequest: 0
+    property string bindingWindowAddress: ""
+    property var lastApplication: ({})
     property var networks: ({ items: [], vpns: [], proton: false })
     property string panel: ""
     property string message: ""
@@ -39,17 +43,33 @@ ShellRoot {
         panel = panel === name ? "" : name;
         message = "";
         if (panel === "launcher") send("apps");
-        if (panel === "bindings") send("bindings");
+        if (panel === "bindings") {
+            bindingWindowAddress = lastApplication.address || "";
+            refreshBindings();
+        }
         if (panel === "network") send("networks");
+    }
+    function refreshBindings() {
+        bindingContext = { tabs: [], tools: [], selected: "desktop" };
+        bindingRequest++;
+        send("bindings", { windowAddress: bindingWindowAddress, requestId: bindingRequest });
     }
     function close() { panel = ""; message = ""; }
     function receive(line) {
         try {
             const event = JSON.parse(line);
             switch (event.type) {
-            case "state": state = event.data; ready = true; break;
+            case "state":
+                state = event.data; ready = true;
+                if (state.window && state.window.address && state.window.class
+                        && !["qs", "quickshell"].includes(state.window.class.toLowerCase()))
+                    lastApplication = { address: state.window.address };
+                break;
             case "apps": apps = event.data; break;
             case "bindings": bindings = event.data; break;
+            case "binding-context":
+                if (event.data.requestId === bindingRequest) bindingContext = event.data;
+                break;
             case "networks": networks = event.data; break;
             case "notice": message = event.data; break;
             case "osd": if (root.panel !== "audio") osd.show(event.data.kind, event.data.percent, event.data.muted); break;
@@ -87,6 +107,7 @@ ShellRoot {
         function status(): string {
             const rect = menu.cardGeometry;
             return JSON.stringify({ panel: root.panel, ready: root.ready, preview: root.preview,
+                shortcutTabs: root.bindingContext.tabs.map(t => t.label), shortcutTarget: root.bindingContext.selected,
                 monitor: root.menuScreen ? root.menuScreen.name : "", geometry: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } });
         }
     }

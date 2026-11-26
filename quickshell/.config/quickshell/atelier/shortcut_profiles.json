@@ -1,0 +1,87 @@
+{
+  "profiles": [
+    {
+      "id": "ghostty",
+      "name": "Ghostty",
+      "classes": ["com.mitchellh.ghostty", "ghostty"],
+      "note": "Ghostty documented Linux defaults. Local configuration could override these.",
+      "bindings": [
+        {"key": "Ctrl + Shift + C", "description": "Copy selection", "category": "Ghostty"},
+        {"key": "Ctrl + Shift + V", "description": "Paste clipboard", "category": "Ghostty"},
+        {"key": "Ctrl + Shift + T", "description": "New tab", "category": "Ghostty"},
+        {"key": "Ctrl + Shift + P", "description": "Command palette", "category": "Ghostty"}
+      ]
+    },
+    {
+      "id": "zen",
+      "name": "Zen",
+      "classes": ["zen", "zen-browser", "zen-bin"],
+      "note": "Common browser defaults. Zen custom shortcuts and extensions can override these.",
+      "bindings": [
+        {"key": "Ctrl + L", "description": "Focus address bar", "category": "Navigation"},
+        {"key": "Alt + Left / Alt + Right", "description": "Back / forward", "category": "Navigation"},
+        {"key": "Ctrl + R / Ctrl + Shift + R", "description": "Reload / reload without cache", "category": "Navigation"},
+        {"key": "Ctrl + F", "description": "Find on page", "category": "Navigation"},
+        {"key": "Ctrl + T", "description": "New tab", "category": "Tabs"},
+        {"key": "Ctrl + W", "description": "Close tab", "category": "Tabs"},
+        {"key": "Ctrl + Shift + T", "description": "Reopen closed tab", "category": "Tabs"},
+        {"key": "Ctrl + Tab / Ctrl + Shift + Tab", "description": "Next / previous tab", "category": "Tabs"},
+        {"key": "Ctrl + + / Ctrl + - / Ctrl + 0", "description": "Zoom in / out / reset", "category": "Page"},
+        {"key": "F12", "description": "Developer tools", "category": "Page"}
+      ]
+    },
+    {
+      "id": "opencode",
+      "name": "OpenCode",
+      "processes": ["opencode"],
+      "note": "OpenCode V2 reference: https://opencode.ai/docs/cli/keybinds",
+      "bindings": [
+        {"key": "ctrl+p", "description": "Command palette", "category": "OpenCode · Application", "context": "command.palette.show"},
+        {"key": "ctrl+c,ctrl+d,<leader>q", "description": "Exit OpenCode", "category": "OpenCode · Application", "context": "app.exit"},
+        {"key": "<leader>e", "description": "Open external editor", "category": "OpenCode · Application", "context": "prompt.editor"},
+        {"key": "<leader>b", "description": "Toggle sidebar", "category": "OpenCode · Application", "context": "session.sidebar.toggle"},
+        {"key": "ctrl+alt+k", "description": "Toggle Which-Key help", "category": "OpenCode · Application", "context": "which-key.toggle"},
+        {"key": "ctrl+o", "description": "Recent sessions and projects", "category": "OpenCode · Sessions", "context": "open.menu"},
+        {"key": "<leader>n", "description": "New session", "category": "OpenCode · Sessions", "context": "session.new"},
+        {"key": "<leader>l", "description": "List sessions", "category": "OpenCode · Sessions", "context": "session.list"},
+        {"key": "ctrl+tab,alt+down", "description": "Next session tab", "category": "OpenCode · Sessions", "context": "session.tab.next"},
+        {"key": "ctrl+shift+tab,alt+up", "description": "Previous session tab", "category": "OpenCode · Sessions", "context": "session.tab.previous"},
+        {"key": "<leader>w", "description": "Close session tab", "category": "OpenCode · Sessions", "context": "session.tab.close"},
+        {"key": "escape", "description": "Interrupt session", "category": "OpenCode · Sessions", "context": "session.interrupt"},
+        {"key": "ctrl+b", "description": "Background blocking tools", "category": "OpenCode · Sessions", "context": "session.background"},
+        {"key": "<leader>c", "description": "Compact session", "category": "OpenCode · Sessions", "context": "session.compact"},
+        {"key": "<leader>u", "description": "Undo message", "category": "OpenCode · Sessions", "context": "session.undo"},
+        {"key": "<leader>r", "description": "Redo message", "category": "OpenCode · Sessions", "context": "session.redo"},
+        {"key": "<leader>m", "description": "Choose model", "category": "OpenCode · Models", "context": "model.list"},
+        {"key": "f2", "description": "Next recent model", "category": "OpenCode · Models", "context": "model.cycle_recent"},
+        {"key": "shift+tab", "description": "Next agent", "category": "OpenCode · Models", "context": "agent.cycle"},
+        {"key": "ctrl+t", "description": "Cycle model variant", "category": "OpenCode · Models", "context": "variant.cycle"},
+        {"key": "return", "description": "Submit input", "category": "OpenCode · Input", "context": "input.submit"},
+        {"key": "shift+return,ctrl+return,alt+return,ctrl+j", "description": "Insert newline", "category": "OpenCode · Input", "context": "input.newline"},
+        {"key": "ctrl+c", "description": "Clear input", "category": "OpenCode · Input", "context": "prompt.clear"},
+        {"key": "ctrl+v", "description": "Paste clipboard", "category": "OpenCode · Input", "context": "prompt.paste"},
+        {"key": "<leader>return", "description": "Queue prompt", "category": "OpenCode · Input", "context": "prompt.queue"},
+        {"key": "pageup,ctrl+alt+b", "description": "Scroll messages up", "category": "OpenCode · Navigation", "context": "session.page.up"},
+        {"key": "pagedown,ctrl+alt+f", "description": "Scroll messages down", "category": "OpenCode · Navigation", "context": "session.page.down"},
+        {"key": "<leader>g", "description": "Session timeline", "category": "OpenCode · Navigation", "context": "session.timeline"}
+      ]
+    },
+    {
+      "id": "tmux",
+      "name": "tmux",
+      "processes": ["tmux", "tmux: client"],
+      "note": "tmux defaults, prefix Ctrl+B. Custom prefix, key tables, and active pane programs are not inspected.",
+      "bindings": [
+        {"key": "Ctrl+B → ?", "description": "List current tmux key bindings", "category": "tmux"},
+        {"key": "Ctrl+B → c", "description": "Create window", "category": "tmux"},
+        {"key": "Ctrl+B → n / p", "description": "Next / previous window", "category": "tmux"},
+        {"key": "Ctrl+B → %", "description": "Split pane left/right", "category": "tmux"},
+        {"key": "Ctrl+B → \"", "description": "Split pane top/bottom", "category": "tmux"},
+        {"key": "Ctrl+B → arrows", "description": "Select adjacent pane", "category": "tmux"},
+        {"key": "Ctrl+B → z", "description": "Zoom pane", "category": "tmux"},
+        {"key": "Ctrl+B → [", "description": "Enter copy mode", "category": "tmux"},
+        {"key": "Ctrl+B → d", "description": "Detach client", "category": "tmux"}
+      ]
+    }
+  ]
+}

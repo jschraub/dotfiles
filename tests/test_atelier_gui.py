@@ -270,6 +270,14 @@ class AtelierGuiTest(unittest.TestCase):
                         self.assertEqual(ipc("toggle", name).returncode, 0)
                         time.sleep(0.4)
                         self.assertIn(f'"panel":"{name}"', ipc("status").stdout)
+                        if name == "bindings":
+                            deadline = time.monotonic() + 8
+                            while time.monotonic() < deadline:
+                                help_state = json.loads(ipc("status").stdout)
+                                if help_state["shortcutTabs"]:
+                                    break
+                                time.sleep(.05)
+                            self.assertIn("Desktop", help_state["shortcutTabs"])
                         geometry = json.loads(ipc("status").stdout)["geometry"]
                         self.assertGreater(geometry["height"], 250)
                         self.assertGreaterEqual(geometry["y"], 40)

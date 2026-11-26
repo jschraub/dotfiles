@@ -18,7 +18,7 @@ PanelWindow {
     color: "transparent"
     property bool centered: ["launcher", "bindings", "power", "clipboard"].includes(shell.panel)
     property real preferredWidth: shell.panel === "bindings" ? 940 : ["launcher", "clipboard"].includes(shell.panel) ? 680 : shell.panel === "sharing" ? 620 : shell.panel === "power" ? 460 : 420
-    property real preferredHeight: ({ bindings: 600, launcher: 530, audio: 270, network: 650,
+    property real preferredHeight: ({ bindings: 700, launcher: 530, audio: 270, network: 650,
                                       calendar: 430, power: 340, notifications: 570, audioDevices: 570,
                                       bluetooth: 570, media: 430, tray: 470, clipboard: 620, sharing: 760 })[shell.panel] || 300
     readonly property rect cardGeometry: Qt.rect(card.x, card.y, card.width, card.height)

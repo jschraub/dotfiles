@@ -84,7 +84,7 @@ casting. Removing them would remove features that Atelier still delegates.
 | Entry point | Behavior |
 | --- | --- |
 | Super+Space / Applications button | Desktop-entry launcher, icons, substring filtering, arrow-key navigation, Enter to launch; Gio handles Exec/DBus/Terminal semantics instead of evaluating labels as shell commands. |
-| Super+F1 / launcher footer | Live shortcuts, category sidebar, real section headers, separate key/action columns, category/action/key filtering. Arrow/PageUp/PageDown scrolling; reference only, never executes shortcuts. |
+| Super+F1 / launcher footer | Desktop plus current-workspace application tabs, opening on the previously focused app. Ghostty configuration and detected workspace-local terminal-tool references. All installed searches available profiles for open or closed apps/tools; uninstalled tools are hidden. Source-labelled shortcuts, category/search filtering, Ctrl+Tab tab cycling, and Arrow/PageUp/PageDown scrolling. Reference only, never executes shortcuts. See [shortcut profiles and detection limits](hyprland-keybindings.md). |
 | Super+V | Searchable RAM-only clipboard picker for text and PNGs, larger selected-image previews, explicit text-truncation details, keyboard selection, copy/delete, pause, clear and optional expiry. Copy never automatically pastes. Source-marked sensitive offers are skipped; unmarked secrets can still be remembered. See [clipboard privacy and limits](clipboard.md). |
 | Super+Ctrl+S / Connectivity → Screen sharing | Native AirPlay controls via optional Doubletake, with discovery, private pairing, encoder choices, status and Stop. Miracast/Chromecast delegate to owned Network Displays without forcing an AMD driver. See [casting setup and NVIDIA validation](casting.md). |
 | Workspace buttons | Selected: amber number, amber outline and raised background. Occupied but unselected: amber number only; empty: muted number. Occupancy uses the compositor's actual window count on that output, not merely a workspace record. Hover/keyboard-focus cues remain; hints show window counts. Compact padding keeps numbers centered and multi-digit labels expand instead of clipping. Bars follow output creation/removal. |
@@ -154,6 +154,10 @@ The inhibitor now lives at `~/.local/bin/dotfiles-keep-awake.sh`, provided by
   wpctl and the existing inhibitor. Hyprland socket events update focus/workspaces
   promptly; slower system status is refreshed separately on a two-second cadence
   and after control actions. Passwords pass over stdin, never argv or logs.
+- `shortcut_context.py`, `shortcut_profiles.json`: read-only workspace shortcut
+  snapshots, configuration-derived Ghostty/OpenCode references, bounded
+  terminal-process discovery, and data-only user profiles. Raw window titles,
+  terminal contents, arguments and environments are not included in snapshots.
 - `DesktopServices.qml`: native PipeWire, BlueZ, MPRIS and tray discovery.
 - `hyprland-common/.local/bin/desktop-shell`: idempotent native lifecycle and
   menu-triggered recovery; startup failures are explicit.

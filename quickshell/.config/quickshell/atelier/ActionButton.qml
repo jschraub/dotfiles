@@ -8,6 +8,7 @@ Controls.AbstractButton {
     property bool dangerous: false
     property string hint: ""
     property string hintShortcut: ""
+    property bool showShortcut: false
     property bool alignLeft: false
     property color textColor: Theme.text
     property bool tabularDigits: false
@@ -47,23 +48,33 @@ Controls.AbstractButton {
     contentItem: Item {
         id: content
         readonly property rect ink: inkMetrics.tightBoundingRect
+        readonly property real shortcutWidth: root.showShortcut && root.hintShortcut ? inlineShortcut.implicitWidth + 10 : 0
         // Reserve symmetric bearing space large enough to contain BOTH the
         // label's advance and the actual glyph ink, including fallback icons.
         readonly property real bearing: Math.max(0, ink.x, inkMetrics.advanceWidth - ink.x - ink.width)
-        implicitWidth: root.alignLeft ? Math.max(inkMetrics.advanceWidth, ink.x + ink.width) - Math.min(0, ink.x)
-                                      : ink.width + bearing * 2
-        implicitHeight: buttonLabel.implicitHeight
+        implicitWidth: (root.alignLeft ? Math.max(inkMetrics.advanceWidth, ink.x + ink.width) - Math.min(0, ink.x)
+                                      : ink.width + bearing * 2) + shortcutWidth
+        implicitHeight: Math.max(buttonLabel.implicitHeight, inlineShortcut.visible ? inlineShortcut.implicitHeight : 0)
         Label {
             id: buttonLabel
             objectName: "button-label"
             x: root.alignLeft || content.width < content.implicitWidth - 0.01 ? Math.max(0, -content.ink.x)
-                : (content.width - content.ink.width) / 2 - content.ink.x
-            width: Math.max(0, content.width - x)
+                : (content.width - content.shortcutWidth - content.ink.width) / 2 - content.ink.x
+            width: Math.max(0, content.width - x - content.shortcutWidth)
             height: content.height
             text: root.text
             horizontalAlignment: Text.AlignLeft
             color: root.dangerous ? Theme.dangerText : root.selected ? Theme.accent : root.textColor
             font.features: root.tabularDigits ? ({ "tnum": 1 }) : ({})
+        }
+        Label {
+            id: inlineShortcut
+            objectName: "button-shortcut"
+            anchors { right: parent.right; verticalCenter: parent.verticalCenter }
+            visible: root.showShortcut && !!root.hintShortcut
+            text: root.hintShortcut
+            color: Theme.good
+            font.family: Theme.mono; font.pixelSize: 10
         }
     }
     PopupWindow {

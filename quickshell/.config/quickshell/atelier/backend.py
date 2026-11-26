@@ -307,7 +307,13 @@ def action(request):
     if name == "apps":
         emit("apps", app_entries())
     elif name == "bindings":
-        emit("bindings", keybindings())
+        from shortcut_context import snapshot
+        desktop = keybindings()
+        emit("bindings", desktop)
+        context = snapshot(desktop, config=CONFIG, run=command,
+                           window_address=str(request.get("windowAddress", "")))
+        context["requestId"] = request.get("requestId")
+        emit("binding-context", context)
     elif name == "networks":
         emit("networks", networks())
     elif name == "launch":
