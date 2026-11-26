@@ -70,9 +70,11 @@ the machine-local path only on machines where you want it. It:
 The example is a direct update command with installation/process guards, not a
 second installer. The AC installer handles root refusal, validation and locks.
 A missing updater checkout, busy installer, race or download/hash/installation
-error is a real failure, not a silent skip. v166+ plugin updates
-remain a separate **Plugin Manager → Update all** operation. The local script
-does not enable optional features, start clients or update plugins.
+error is a real failure, not a silent skip. The current `ac-jars` updater also
+updates existing official Plugin Manager packages after v166+ binary updates.
+That logic belongs to the application updater, not this Fish hook. Missing/manual
+plugins and permission changes still need Plugin Manager review. The local script
+does not enable optional features or start clients.
 
 Run the custom step alone with:
 
